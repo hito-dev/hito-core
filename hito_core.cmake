@@ -21,12 +21,16 @@ set(RUST_BUILD_FLAGS --target ${RUST_TARGET} ${RUST_BUILD_TYPE_FLAG} --no-defaul
     ${RUST_FEATURES},log-${RUST_LOG_LEVEL} -p ${PROJECT_NAME})
 
 # Custom target to ensure Rust library is built
-add_custom_target(rust_build ALL
+add_custom_command(
+    OUTPUT ${RUST_LIB_PATH}
     COMMAND cargo build ${RUST_BUILD_FLAGS}
     WORKING_DIRECTORY ${RUST_APP_DIR}
     COMMENT "Building Rust library (Cargo handles incremental builds)"
     USES_TERMINAL
-    BYPRODUCTS ${RUST_LIB_PATH}
+    VERBATIM
+)
+add_custom_target(rust_build ALL
+    DEPENDS ${RUST_LIB_PATH}
 )
 
 # platform shims for zephry inline functions
