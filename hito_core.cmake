@@ -12,25 +12,23 @@ endif()
 set(RUST_APP_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 set(RUST_WORKSPACE_DIR ${RUST_APP_DIR}/../..)
 set(RUST_TARGET_DIR ${RUST_WORKSPACE_DIR}/target/${RUST_TARGET}/${RUST_BUILD_TYPE})
-set(RUST_LIB_PATH ${RUST_TARGET_DIR}/lib${PROJECT_NAME}.a)
+get_filename_component(RUST_LIB_PATH
+    ${RUST_TARGET_DIR}/lib${PROJECT_NAME}.a
+    ABSOLUTE
+)
 
 # Build features and flags
 set(RUST_FEATURES zephyr)
 
-set(RUST_BUILD_FLAGS --target ${RUST_TARGET} ${RUST_BUILD_TYPE_FLAG} --no-default-features --features
-    ${RUST_FEATURES},log-${RUST_LOG_LEVEL} -p ${PROJECT_NAME})
+set(RUST_BUILD_FLAGS --target ${RUST_TARGET} ${RUST_BUILD_TYPE_FLAG} --no-default-features --features ${RUST_FEATURES},log-${RUST_LOG_LEVEL} -p ${PROJECT_NAME})
 
 # Custom target to ensure Rust library is built
-add_custom_command(
-    OUTPUT ${RUST_LIB_PATH}
+add_custom_target(rust_build ALL
     COMMAND cargo build ${RUST_BUILD_FLAGS}
     WORKING_DIRECTORY ${RUST_APP_DIR}
     COMMENT "Building Rust library (Cargo handles incremental builds)"
     USES_TERMINAL
-    VERBATIM
-)
-add_custom_target(rust_build ALL
-    DEPENDS ${RUST_LIB_PATH}
+    BYPRODUCTS ${RUST_LIB_PATH}
 )
 
 # platform shims for zephry inline functions
@@ -65,7 +63,7 @@ target_include_directories(app PRIVATE
 
 target_sources(app PRIVATE ${SOURCE_FILES})
 # TODO decide PUBLIC vs PRIVATE
-target_link_libraries(app PRIVATE ${RUST_LIB_PATH})
+target_link_libraries(app PUBLIC ${RUST_LIB_PATH})
 
 #target_compile_options(app PRIVATE -Os -ffunction-sections -fdata-sections)
 target_compile_options(app PRIVATE -Os -ffunction-sections -fdata-sections)
