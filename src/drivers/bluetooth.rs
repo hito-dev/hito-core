@@ -1,5 +1,6 @@
 use crate::driver;
 
+// TODO implement ping pong by default in debug mode
 /*
 pub trait Transport {
 
