@@ -30,6 +30,7 @@
 //! - Call `logging::set_enabled(false)` to drop everything quickly.
 
 #![allow(dead_code)]
+#![allow(unexpected_cfgs)]
 
 use core::fmt;
 use core::fmt::Write as _;
@@ -43,6 +44,7 @@ pub enum Level {
     Debug,
     Trace,
     BackTrace,
+    BootBanner,
 }
 
 pub type LogBackend   = fn(&[u8]);   /// writes bytes to output;
@@ -147,13 +149,14 @@ pub fn write_ext(level: Level, file: Option<&'static str>, line: Option<u32>, ar
 
     // Prefix
     let _ = w.write_str(match level {
-        Level::Error => "\x1b[31m",
-        Level::Warn  => "\x1b[33m",
-        Level::Info  => "\x1b[0m",
-        Level::Ok    => "\x1b[32m",
-        Level::Debug => "\x1b[37m",
-        Level::Trace => "\x1b[90m",
-        Level::BackTrace => "\x1b[36m",
+        Level::Error      => "\x1b[31m",    // red
+        Level::Warn       => "\x1b[33m",    // yellow
+        Level::Info       => "\x1b[0m",     // default
+        Level::Ok         => "\x1b[32m",    // green
+        Level::Debug      => "\x1b[90m",    // dark gray
+        Level::Trace      => "\x1b[36m",    // cyan
+        Level::BackTrace  => "\x1b[1;36m",  // bold cyan
+        Level::BootBanner => "\x1b[1;37m",  // bold white
     });
     if let Some(time) = time {
         let timestamp_ms = time();
@@ -171,6 +174,7 @@ pub fn write_ext(level: Level, file: Option<&'static str>, line: Option<u32>, ar
         Level::Debug => "",
         Level::Trace => "",
         Level::BackTrace => "",
+        Level::BootBanner => "",
     });
 
     let _ = fmt::write(&mut w, args);
@@ -272,7 +276,7 @@ pub fn print_backtrace(w: &mut impl fmt::Write) {
         let line = symbol.lineno().unwrap_or(0);
         //let _ = fmt::write(w, format_args!("      #{i} .. {name}\tat {file}:{line}\n"));
         let _ = std::fmt::write(w, std::format_args!(
-            "      \x1b[90m#{i} \x1b[90m.. \x1b[36m{name}\x1b[0m\t\x1b[90mat {file}:{line}\x1b[0m\n"
+            "      \x1b[90m#{i} \x1b[90m.. \x1b[1;36m{name}\x1b[0m\t\x1b[90mat {file}:{line}\x1b[0m\n"
         ));
 
     }
@@ -356,6 +360,38 @@ macro_rules! ok {
             core::format_args!($($arg)*)
         );
     }};
+}
+
+#[macro_export]
+macro_rules! log_boot_banner {
+    () => {
+        #[allow(unexpected_cfgs)]
+        #[cfg(any(feature = "log-info", feature = "log-debug", feature = "log-trace"))]
+        $crate::logging::write(
+            $crate::logging::Level::BootBanner, 
+            core::format_args!("{} v{} {}/{}{}",
+                env!("CARGO_PKG_NAME"),
+                env!("CARGO_PKG_VERSION"),
+                match () {
+                    _ if cfg!(feature = "zephyr")    => "zephyr",
+                    _                                => "simulator",
+                },
+                match () {
+                    _ if cfg!(feature = "log-trace") => "log-trace",
+                    _ if cfg!(feature = "log-debug") => "log-debug",
+                    _ if cfg!(feature = "log-error") => "log-debug",
+                    _ if cfg!(feature = "log-warn")  => "log-warn",
+                    _ if cfg!(feature = "log-info")  => "log-info",
+                    _                                => "no-log",
+                },
+                match () {
+                    _ if cfg!(feature = "gui")     => "/gui",
+                    _ if cfg!(feature = "console") => "/console",
+                    _                              => "",
+                },
+            ),
+        );
+    }
 }
 
 /// Debug (compiled when level >= debug; includes file:line)

@@ -47,6 +47,7 @@ pub fn default_time_provider() -> TimeProvider {
 pub fn init() {
     crate::logging::set_backend(Some(default_backend()));
     crate::logging::set_time_provider(Some(default_time_provider()));
-    ok!("{} init", module_path!());
+    //ok!("{} init", module_path!());
+    //log_boot_banner!();
 }
 

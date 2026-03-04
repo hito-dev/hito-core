@@ -24,11 +24,13 @@ pub use alloc::vec::Vec;
 macro_rules! hito_main {
     ($app_fn:expr) => {
 
+
         extern crate alloc;
 
         #[inline (always)]
         pub fn hito_main() {
             $crate::drivers::log_backend::init();
+            log_boot_banner!();
             $app_fn();
         }
 
