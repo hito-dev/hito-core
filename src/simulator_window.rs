@@ -13,7 +13,7 @@ use std::{ process };
 
 use minifb::{Key, MouseButton, Window, WindowOptions};
 //use std::fs;
-//use font8x8::UnicodeFonts;
+use font8x8::UnicodeFonts;
 
 //use resvg::tiny_skia::Pixmap;
 //use resvg::usvg::{Options, Tree};
@@ -396,15 +396,14 @@ impl SimulatorWindow {
         */
     }
 
-    /*
     pub fn draw_text(&mut self, text: &str, mut x: u32, mut y: u32, color: u32) {
         for ch in text.chars() {
             if ch == '\n' { y += GLYPH_H + 1; x = 0; continue; }
 
             // Try blocks in order (Basic Latin, Latin-1, Cyrillic, etc.)
             let glyph_rows = font8x8::BASIC_FONTS.get(ch);
-                // .or_else(|| font8x8::Cyrillic::new().get(ch))
-                // .or_else(|| font8x8::BoxDrawing::new().get(ch));
+                 //.or_else(|| font8x8::Cyrillic::new().get(ch))
+                 //.or_else(|| font8x8::BoxDrawing::new().get(ch));
 
             if let Some(rows) = glyph_rows {
                 for (row, bits) in rows.iter().enumerate() {
@@ -425,7 +424,6 @@ impl SimulatorWindow {
             x += GLYPH_W + 1;
         }
     }
-    */
 
     fn get_memory_usage_labels(&self) -> (String, String, String) {
         let to_label = |i: usize| -> String {
@@ -467,9 +465,9 @@ impl SimulatorWindow {
             }
         }
 
-        //self.draw_text(&label1, overlay_x + 5, overlay_y + 5, 0x00FF00);
-        //self.draw_text(&label2, overlay_x + 5, overlay_y + 15, 0x00FF00);
-        //self.draw_text(&label3, overlay_x + 5, overlay_y + 25, 0xFFFF00);
+        self.draw_text(&label1, overlay_x + 5, overlay_y + 5, 0x00FF00);
+        self.draw_text(&label2, overlay_x + 5, overlay_y + 15, 0x00FF00);
+        self.draw_text(&label3, overlay_x + 5, overlay_y + 25, 0xFFFF00);
     }
 
     pub fn update(&mut self) {
