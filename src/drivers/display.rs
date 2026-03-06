@@ -1,4 +1,6 @@
-use crate::driver;
+use alloc::vec;
+
+use crate::{driver, drivers::QR};
 
 //use libm::sqrtf;
 
@@ -65,6 +67,35 @@ impl Display {
             let x = cx - chord / 2;
             let y = cy - radius + i;
             Self::draw_line_buffer(x, y, &buf[..chord as usize]);
+        }
+    }
+
+    pub fn draw_qr() {
+        let (x_start, y_start) = QR::get_coords();
+        debug!("QR coords: ({}, {})", x_start, y_start);
+
+        let image_width = QR::width();
+
+        let mut line_buffer = vec![0u16; image_width as usize];
+        const WHITE: u16 = 0xFFFF; // RGB565 white
+        const BLACK: u16 = 0x0000; // RGB565 black
+
+        for y in 0..QR::width() {
+            // k = y (row of module)
+            for x in 0..QR::width() {
+                // i = x (module in one row)
+                let is_black = QR::get_module(x as i32, y as i32);
+                let col = if is_black { BLACK } else { WHITE };
+                line_buffer[x as usize] = col;
+            }
+
+            //debug!("Drawing QR line {} with image width {}", y, image_width);
+
+            Self::draw_line_buffer(
+                x_start,
+                y_start + y as u16,
+                &line_buffer,
+            );
         }
     }
 
