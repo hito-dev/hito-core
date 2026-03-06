@@ -1,12 +1,12 @@
 #include "hito_power.h"
-#include <hito_pin_config.h>
+#include "hito_pin_config.h"
 
 #include <device.h>
 #include <hal/nrf_reset.h>
 #include <pm/pm.h>
 #include <sys/reboot.h>
 
-#include <ft6336_ctp.h>
+//#include <ft6336_ctp.h>
 
 bool hito_power_reboot() 
 {
