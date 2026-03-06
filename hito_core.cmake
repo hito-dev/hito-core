@@ -18,7 +18,10 @@ get_filename_component(RUST_LIB_PATH
 )
 
 # Build features and flags
-set(RUST_FEATURES zephyr)
+#set(RUST_FEATURES zephyr)
+
+include(${CMAKE_CURRENT_LIST_DIR}/cargo_features.cmake)
+set(RUST_FEATURES ${CARGO_FEATURES_STR})
 
 set(RUST_BUILD_FLAGS --target ${RUST_TARGET} ${RUST_BUILD_TYPE_FLAG} --no-default-features --features ${RUST_FEATURES},log-${RUST_LOG_LEVEL} -p ${PROJECT_NAME})
 
@@ -46,6 +49,8 @@ set(DRIVERS_C_SOURCES
   ${DRIVERS_C_SOURCE_DIR}/ft6336_ctp.c
   ${DRIVERS_C_SOURCE_DIR}/ili9342_lcd.c
   ${DRIVERS_C_SOURCE_DIR}/hito_pin_config.c
+  ${DRIVERS_C_SOURCE_DIR}/hito_button.c
+  ${DRIVERS_C_SOURCE_DIR}/hito_power.c
 )
 
 # Main application sources
