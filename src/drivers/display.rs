@@ -1,6 +1,7 @@
 use alloc::vec;
 
-use crate::{driver, drivers::QR};
+use crate::{driver};
+use crate::ui::QR;
 
 //use libm::sqrtf;
 

@@ -2,7 +2,7 @@
 pub mod log_backend;
 
 macro_rules! mods { ($($name:ident),*) => { $(mod $name;)* }; }
-mods!(time, serial, bluetooth, touch, display, qr_code);
+mods!(time, serial, bluetooth, touch, display);
 
 #[cfg(feature = "simulator")]
 mod simulator;
@@ -20,8 +20,6 @@ pub use bluetooth::Bluetooth;
 pub use touch::Touch;
 #[allow(unused_imports)]
 pub use display::Display;
-#[allow(unused_imports)]
-pub use qr_code::QR;
 
 
 // Single macro that takes methods once
