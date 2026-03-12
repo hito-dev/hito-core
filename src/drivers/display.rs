@@ -11,6 +11,8 @@ pub struct Rect {
     pub height: u16,
 }
 
+static mut QR_DRAWN: bool = false;
+
 //pub static mut LINE_BUFFER: [u16; 320] = [0; 320];
 //
 //pub const WIDTH:  u16 = 320;
@@ -34,7 +36,6 @@ fn my_sqrt(x: f32) -> f32 {
 }
 
 impl Display {
-
     pub const WIDTH:  u16 = 320;
     pub const HEIGHT: u16 = 240;
 
@@ -70,32 +71,47 @@ impl Display {
         }
     }
 
+    pub fn clear_qr() {
+        let (x, y) = QR::get_coords();
+        Self::fill_rect(x, y, QR::image_width(), QR::image_width(), 0xFFFF);
+        unsafe { QR_DRAWN = false; }
+    }
+
     pub fn draw_qr() {
+        if unsafe { QR_DRAWN } {
+            return;
+        }
+        unsafe { QR_DRAWN = true; }
         let (x_start, y_start) = QR::get_coords();
         debug!("QR coords: ({}, {})", x_start, y_start);
 
-        let image_width = QR::width();
+        let image_width = QR::image_width();
+        let qr_density = QR::density() as usize;
 
         let mut line_buffer = vec![0u16; image_width as usize];
         const WHITE: u16 = 0xFFFF; // RGB565 white
         const BLACK: u16 = 0x0000; // RGB565 black
 
-        for y in 0..QR::width() {
+        for y in 0..QR::size() {
             // k = y (row of module)
-            for x in 0..QR::width() {
+            for x in 0..QR::size() {
                 // i = x (module in one row)
-                let is_black = QR::get_module(x as i32, y as i32);
+                let is_black = QR::get_module(x, y);
                 let col = if is_black { BLACK } else { WHITE };
-                line_buffer[x as usize] = col;
+                let dst = x as usize * qr_density as usize;
+                for j in 0..qr_density as usize {
+                    line_buffer[dst + j] = col;
+                }
             }
 
             //debug!("Drawing QR line {} with image width {}", y, image_width);
-
-            Self::draw_line_buffer(
-                x_start,
-                y_start + y as u16,
-                &line_buffer,
-            );
+            for y_times in 0..qr_density {
+                Self::draw_line_buffer(
+                    x_start,
+                    y_start + y as u16 * qr_density as u16 + y_times as u16,
+                    &line_buffer[0..image_width as usize],
+                );
+            }
         }
     }
 

@@ -19,7 +19,7 @@ impl crate::drivers::display::DisplayDriver for DisplayZephyr {
     fn init() -> bool  { 
 
         unsafe {
-            hito_pin_config();
+            //hito_pin_config();
             ili9342_lcd_init();
 
             //ili9342_lcd_fill_rect(0, 0, 320, 240, 0xffff);

@@ -27,8 +27,23 @@ macro_rules! hito_main {
 
         extern crate alloc;
 
+        #[cfg(feature = "zephyr")]
+        extern "C" {
+            fn hito_pin_config();
+            fn hito_button_init();
+        }
+
         #[inline (always)]
         pub fn hito_main() {
+
+            #[cfg(feature = "zephyr")]
+            unsafe {
+                hito_pin_config();
+                hito_button_init();
+            }
+
+            //#[cfg(feature = "zephyr")]
+
             $crate::drivers::log_backend::init();
             log_boot_banner!();
             $app_fn();
