@@ -29,7 +29,6 @@ backtrace = { version = "0.3", optional = true }
 #base32 = { version = "0.5.1", default-features = false }
 #crc = { version = "3.3.0", default-features = false }
 ## substrate-stellar-sdk = { version="0.3.0", default-features = false }
-qrcodegen-no-heap = { version = "1.8.1",  default-features = true}
 
 #paste = "1.0"
 #base64ct = {version = "1.8.0", default-features = false }
