@@ -6,7 +6,6 @@ extern crate alloc;
 #[macro_use] 
 pub mod logging;
 pub mod drivers;
-pub mod ui;
 //mod protocols;
 
 #[cfg(feature = "simulator")]
