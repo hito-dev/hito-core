@@ -1,4 +1,4 @@
-use crate::{driver};
+use crate::driver;
 
 //use libm::sqrtf;
 
@@ -32,6 +32,7 @@ fn my_sqrt(x: f32) -> f32 {
 }
 
 impl Display {
+
     pub const WIDTH:  u16 = 320;
     pub const HEIGHT: u16 = 240;
 
@@ -66,6 +67,7 @@ impl Display {
             Self::draw_line_buffer(x, y, &buf[..chord as usize]);
         }
     }
+
 }
 
 #[cfg(feature = "simulator")]
