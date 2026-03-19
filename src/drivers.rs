@@ -21,7 +21,6 @@ pub use touch::Touch;
 #[allow(unused_imports)]
 pub use display::Display;
 
-
 // Single macro that takes methods once
 // Put this somewhere common (e.g. src/drivers.rs), and ensure it's in scope.
 #[macro_export]
