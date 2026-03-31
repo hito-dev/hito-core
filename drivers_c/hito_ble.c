@@ -317,7 +317,6 @@ void hito_ble_error_clear()
 	m_hito_ble_has_error = false;
 }
 
-
 //err = bt_conn_le_phy_update(default_conn, phy);
 //-----------------------------------------------------------------------------
 // send data to a connected peer
@@ -361,6 +360,10 @@ bool hito_ble_send(const void * data, uint32_t len)
 
 bool m_ble_is_inited = false;
 bool m_ble_is_started = false;
+
+bool hito_ble_is_active() {
+  return m_ble_is_started;
+}
 
 //static const struct bt_data sd[] = {
     //BT_DATA(BT_DATA_NAME_COMPLETE, "MyDevice", 8),

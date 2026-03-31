@@ -18,6 +18,8 @@ driver! {
         fn init() -> bool;   
         fn start() -> bool;  
         fn stop() -> bool;   
+        
+        fn is_active() -> bool;   
 
         //fn has_data() -> bool;
         //fn get_data_len() -> usize;

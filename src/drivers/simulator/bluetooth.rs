@@ -7,14 +7,28 @@ use crate::drivers::UsbSerial;
 
 pub struct BluetoothSimulator;
 
+//use crate::drivers::time::Time;
+
 static mut CURRENT_LINE: Option<String> = None;
+
+static mut IS_ACTIVE: bool = false;
 
 impl BluetoothDriver for BluetoothSimulator {
 
     fn init() -> bool  { UsbSerial::init() }
 
-    fn start() -> bool { true }
-    fn stop() -> bool  { true }
+    fn start() -> bool { 
+        unsafe { IS_ACTIVE = true; }
+        true 
+    }
+    fn stop() -> bool  { 
+        unsafe { IS_ACTIVE = false; }
+        true 
+    }
+
+    fn is_active() -> bool { 
+        unsafe { IS_ACTIVE }
+    }
 
     #[allow(static_mut_refs)]
     fn get_line() -> Option<&'static str> { unsafe {

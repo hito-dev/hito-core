@@ -10,6 +10,8 @@ bool hito_ble_init();
 void hito_ble_start();
 void hito_ble_stop();
 
+bool hito_ble_is_active();
+
 bool hito_ble_has_data();
 
 bool hito_ble_has_error();

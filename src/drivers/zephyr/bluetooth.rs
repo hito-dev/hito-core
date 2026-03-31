@@ -23,6 +23,7 @@ extern "C" {
     fn hito_ble_data_package_clear();
 
     fn hito_ble_send(data: *const u8, len: u32) -> bool;
+    fn hito_ble_is_active() -> bool;
 }
 
 impl BluetoothDriver for BluetoothZephyr {
@@ -38,6 +39,9 @@ impl BluetoothDriver for BluetoothZephyr {
     fn stop() -> bool  { 
         unsafe { hito_ble_stop(); }
         true
+    }
+    fn is_active() -> bool { 
+        unsafe { hito_ble_is_active() }
     }
 
     fn get_line() -> Option<&'static str> { 
