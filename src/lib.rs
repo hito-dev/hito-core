@@ -42,8 +42,6 @@ macro_rules! hito_main {
                 hito_button_init();
             }
 
-            //#[cfg(feature = "zephyr")]
-
             $crate::drivers::log_backend::init();
             log_boot_banner!();
             $app_fn();
