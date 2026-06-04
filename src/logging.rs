@@ -136,10 +136,20 @@ impl<'a> fmt::Display for HexDump<'a> {
 }
 
 
+#[cfg(feature = "simulator")] 
+use std::sync::OnceLock;
+#[cfg(feature = "simulator")] 
+static INITIALIZED: OnceLock<()> = OnceLock::new();
+
 #[inline(always)]
 pub fn write_ext(level: Level, file: Option<&'static str>, line: Option<u32>, args: fmt::Arguments) {
+    #[cfg(feature = "simulator")]
+    INITIALIZED.get_or_init(|| {
+        crate::drivers::log_backend::init();
+    });
 
     let (enabled, backend, time) = unsafe { (ENABLED, BACKEND, TIME) };
+
     if !enabled || backend.is_none() {
         return;
     }
