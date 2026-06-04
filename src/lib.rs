@@ -43,7 +43,7 @@ macro_rules! hito_main {
             }
 
             $crate::drivers::log_backend::init();
-            log_boot_banner!();
+            hito_core::log_boot_banner!();
             $app_fn();
         }
 
