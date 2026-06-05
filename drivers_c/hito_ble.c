@@ -30,7 +30,7 @@ LOG_MODULE_REGISTER(boot_ble);
 #include "hito_ble.h"
 
 /* Button value. */
-static uint16_t but_val;
+//static uint16_t but_val;
 
 /* Prototype */
 static ssize_t hito_ble_recv(struct bt_conn *conn,
@@ -96,12 +96,15 @@ static struct bt_uuid_128 fido_status_char_uuid = BT_UUID_INIT_128(
 
 static struct bt_gatt_notify_params gatt_notify_params;
 
-static uint8_t m_hito_ble_data[HITO_BLE_MAX_PACKET_LEN];
-uint16_t m_hito_ble_data_len;
+static uint8_t m_hito_ble_packet[HITO_BLE_MAX_PACKET_LEN];
+uint16_t m_hito_ble_packet_len;
 
-uint32_t m_hito_ble_data_package_len;
-uint32_t m_hito_ble_data_package_progress;
-uint8_t * m_hito_ble_data_package = NULL;
+static uint32_t m_hito_ble_payload_len;
+static uint32_t m_hito_ble_payload_progress;
+//uint8_t * m_hito_ble_payload = NULL;
+
+static uint8_t * s_payload_buffer = NULL;
+static uint32_t  s_payload_buffer_size = 0;
 
 bool notify_in_progress = false;
 
@@ -177,72 +180,79 @@ static ssize_t hito_ble_recv(struct bt_conn *conn,
 	//printk(".");
 	//led_update();
 	if (len > HITO_BLE_MAX_PACKET_LEN) {
-		LOG_ERR("data received length is too big - %d, max: %d", 
+		LOG_ERR("packet received length is too big - %d, max: %d", 
 				len, HITO_BLE_MAX_PACKET_LEN);
 		return 0;
 	}
 
-	if (m_hito_ble_data_len > 0) {
+	if (m_hito_ble_packet_len > 0) {
 		LOG_ERR("data buffer is not clear");
 		return 0;
 	}
 
-	memcpy(m_hito_ble_data, (const char *)buf + offset, len);
-	m_hito_ble_data_len = len;
+	memcpy(m_hito_ble_packet, (const char *)buf + offset, len);
+	m_hito_ble_packet_len = len;
 
 	// Data package process
-	if (m_hito_ble_data[0] == 'i') {
+	if (m_hito_ble_packet[0] == 'i') {
 
 		uint32_t data_size;
-		memcpy(&data_size, &m_hito_ble_data[1], 4);
+		memcpy(&data_size, &m_hito_ble_packet[1], 4);
 		data_size = sys_le32_to_cpu(data_size);
 		LOG_DBG("received data package header, size: %u", data_size);
 
-		if (m_hito_ble_data_package != NULL) {
-			LOG_ERR("data package buffer is not empty");
+		if (m_hito_ble_payload_len != 0) {
+			LOG_ERR("payload buffer is not empty");
 			m_hito_ble_has_error = true;
 			hito_ble_send("err", 3);
 			return 0;
 		}
 
-		m_hito_ble_data_package = malloc(data_size);
-		if (m_hito_ble_data_package == NULL) {
-			LOG_ERR("Memory allocation error");
-			m_hito_ble_has_error = true;
-			hito_ble_send("err", 3);
-			return 0;
-		}
+    if (data_size > s_payload_buffer_size) {
+      LOG_ERR("data size is bigger than payload buffer size");
+      m_hito_ble_has_error = true;
+      hito_ble_send("err", 3);
+      return 0;
+    }
 
-		m_hito_ble_data_package_len = data_size;
-		m_hito_ble_data_package_progress = 0;
-		hito_ble_data_clear();
+		//m_hito_ble_payload = malloc(data_size);
+		//if (m_hito_ble_payload == NULL) {
+		//	LOG_ERR("Memory allocation error");
+		//	m_hito_ble_has_error = true;
+		//	hito_ble_send("err", 3);
+		//	return 0;
+		//}
+
+		m_hito_ble_payload_len = data_size;
+		m_hito_ble_payload_progress = 0;
+		hito_ble_packet_clear();
 		hito_ble_send("ok", 2);
 		
-	} else if (m_hito_ble_data[0] == 'd') {
+	} else if (m_hito_ble_packet[0] == 'd') {
 
-		uint32_t data_size = len - 1;
-		LOG_DBG("received data chunk, size: %u, progress %u/%u", data_size,
-				m_hito_ble_data_package_progress, m_hito_ble_data_package_len);
+		uint32_t packet_size = len - 1;
+		LOG_DBG("received packet, size: %u, progress %u/%u", packet_size,
+				m_hito_ble_payload_progress, m_hito_ble_payload_len);
 
-		if (m_hito_ble_data_package == NULL) {
+		if (m_hito_ble_payload_len == 0) {
 			LOG_ERR("Data package info has not provided yet");
 			m_hito_ble_has_error = true;
 			hito_ble_send("err", 3);
 			return 0;
 		}
 
-		if (data_size + m_hito_ble_data_package_progress > m_hito_ble_data_package_len) {
+		if (packet_size + m_hito_ble_payload_progress > m_hito_ble_payload_len) {
 			LOG_ERR("Data chunk size is bigger than expected");
 			m_hito_ble_has_error = true;
 			hito_ble_send("err", 3);
 			return 0;
 		}
 
-		memcpy(&m_hito_ble_data_package[m_hito_ble_data_package_progress], &m_hito_ble_data[1], data_size);
+		memcpy(&s_payload_buffer[m_hito_ble_payload_progress], &m_hito_ble_packet[1], packet_size);
 
-    m_hito_ble_data_package_progress += data_size;
+    m_hito_ble_payload_progress += packet_size;
     
-		hito_ble_data_clear();
+		hito_ble_packet_clear();
 		hito_ble_send("ok", 2);
 
 	}
@@ -251,53 +261,49 @@ static ssize_t hito_ble_recv(struct bt_conn *conn,
 }
 
 
-const void * hito_ble_data() 
+const void * hito_ble_packet() 
 {
-	return m_hito_ble_data;
+	return m_hito_ble_packet;
 }
 
-const void * hito_ble_data_package() 
+const void * hito_ble_payload() 
 {
-	return m_hito_ble_data_package;
+	return s_payload_buffer;
 }
 
-uint16_t hito_ble_datalen()
+uint16_t hito_ble_packet_len()
 {
-	return m_hito_ble_data_len;
+	return m_hito_ble_packet_len;
 }
 
-uint16_t hito_ble_data_package_len()
+uint16_t hito_ble_payload_len()
 {
-	return m_hito_ble_data_package_len;
+	return m_hito_ble_payload_len;
 }
 
 //-----------------------------------------------------------------------------
 // check if bluetooth has data received
 bool hito_ble_has_data() 
 {
-	return m_hito_ble_data_len != 0 ? true : false;
+	return m_hito_ble_packet_len != 0 ? true : false;
 }
 
-bool hito_ble_has_data_package() 
+bool hito_ble_has_payload() 
 {
-	return m_hito_ble_data_package_len != 0 && 
-		m_hito_ble_data_package_len == m_hito_ble_data_package_progress
+	return m_hito_ble_payload_len != 0 && 
+		m_hito_ble_payload_len == m_hito_ble_payload_progress
 		? true : false;
 }
 
-void hito_ble_data_clear() 
+void hito_ble_packet_clear() 
 {
-	m_hito_ble_data_len = 0;
+	m_hito_ble_packet_len = 0;
 }
 
-void hito_ble_data_package_clear() 
+void hito_ble_payload_clear() 
 {
-	m_hito_ble_data_package_len = 0;
-	m_hito_ble_data_package_progress = 0;
-	if (m_hito_ble_data_package != NULL) {
-	  free(m_hito_ble_data_package);
-	  m_hito_ble_data_package = NULL;
-	}
+	m_hito_ble_payload_len = 0;
+	m_hito_ble_payload_progress = 0;
 }
 
 //-----------------------------------------------------------------------------
@@ -341,7 +347,7 @@ bool hito_ble_send(const void * data, uint32_t len)
 
 	gatt_notify_params.uuid = &led_char_uuid.uuid;
 	gatt_notify_params.attr = &stsensor_svc.attrs[1];
-	gatt_notify_params.data = data;
+	gatt_notify_params.data = (void *)data;
 	gatt_notify_params.len  = len;
 	gatt_notify_params.func = bt_notify_callback;
 	gatt_notify_params.user_data = data;
@@ -398,8 +404,8 @@ static void hito_ble_bt_ready(int err)
   m_ble_is_inited = true;
   m_ble_is_started = true;
 
-	m_hito_ble_data_len = 0;
-	m_hito_ble_data_package_len = 0;
+	m_hito_ble_packet_len = 0;
+	m_hito_ble_payload_len = 0;
 	m_hito_ble_has_error = false;
 
 }
@@ -419,8 +425,8 @@ static void hito_ble_connected(struct bt_conn *connected, uint8_t err)
 		m_hito_ble_has_error = true;
 	} else {
 		LOG_DBG("Connected");
-		hito_ble_data_package_clear();
-		hito_ble_data_clear();
+		hito_ble_payload_clear();
+		hito_ble_packet_clear();
 		if (!conn) {
 			conn = bt_conn_ref(connected);
 
@@ -451,7 +457,7 @@ static void hito_ble_disconnected(struct bt_conn *disconn, uint8_t reason)
 		bt_conn_unref(conn);
 		conn = NULL;
 	}
-	hito_ble_data_package_clear();
+	hito_ble_payload_clear();
 
 	LOG_DBG("Disconnected (reason %u)", (int)reason);
 }
@@ -524,8 +530,17 @@ static struct bt_conn_cb hito_ble_conn_callbacks = {
 
 //-----------------------------------------------------------------------------
 // Init Bluetooth
-bool hito_ble_init() 
+bool hito_ble_init(uint8_t * payload_buffer, uint32_t payload_buffer_size)
 {
+
+  if (payload_buffer != NULL && payload_buffer_size > 0) {
+    s_payload_buffer = payload_buffer;
+    s_payload_buffer_size = payload_buffer_size;
+  } else {
+    LOG_ERR("Invalid payload buffer");
+    return false;
+  }
+
 	m_hito_ble_has_error = false;
 
   if (m_ble_is_inited) {
@@ -540,7 +555,7 @@ bool hito_ble_init()
   #endif
 	k_sleep(K_MSEC(100));
 
-	m_hito_ble_data_len = 0;
+	m_hito_ble_packet_len = 0;
 	notify_in_progress = false;
 	conn = NULL;
 
@@ -582,7 +597,7 @@ void hito_ble_stop()
     return;
   }
 
-	hito_ble_data_package_clear();
+	hito_ble_payload_clear();
 
   hito_ble_disconnect();
 	bt_le_adv_stop();
