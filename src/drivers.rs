@@ -9,6 +9,8 @@ mod simulator;
 #[cfg(feature = "zephyr")]
 mod zephyr;
 
+mod payload_buffer;
+
 // 🔥 re-export all drivers at drivers root
 #[allow(unused_imports)]
 pub use time::Time;
