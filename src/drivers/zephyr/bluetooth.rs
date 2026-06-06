@@ -8,19 +8,19 @@ use crate::drivers::time::Time;
 pub struct BluetoothZephyr;
 
 extern "C" {
-    fn hito_ble_init() -> bool;
+    fn hito_ble_init(buf: *mut u8, size: usize) -> bool;
     fn hito_ble_start();
     fn hito_ble_stop();
 
-    fn hito_ble_has_data() -> bool;
-    fn hito_ble_data() -> *mut core::ffi::c_void;
-    fn hito_ble_datalen() -> u16;
-    fn hito_ble_data_clear();
+    fn hito_ble_has_packet() -> bool;
+    fn hito_ble_packet() -> *mut core::ffi::c_void;
+    fn hito_ble_packet_len() -> u16;
+    fn hito_ble_packet_clear();
 
-    fn hito_ble_has_data_package() -> bool;
-    fn hito_ble_data_package() -> *const u8;
-    fn hito_ble_data_package_len() -> u16;
-    fn hito_ble_data_package_clear();
+    fn hito_ble_has_payload() -> bool;
+    fn hito_ble_payload() -> *const u8;
+    fn hito_ble_payload_len() -> u16;
+    fn hito_ble_payload_clear();
 
     fn hito_ble_send(data: *const u8, len: u32) -> bool;
     fn hito_ble_is_active() -> bool;
@@ -29,7 +29,8 @@ extern "C" {
 impl BluetoothDriver for BluetoothZephyr {
 
     fn init() -> bool  { 
-        unsafe { hito_ble_init() }
+        use crate::drivers::payload_buffer;
+        unsafe { hito_ble_init(payload_buffer::as_mut_ptr(), payload_buffer::capacity()) }
     }
 
     fn start() -> bool { 
@@ -46,15 +47,15 @@ impl BluetoothDriver for BluetoothZephyr {
 
     fn get_line() -> Option<&'static str> { 
         unsafe {
-            if !hito_ble_has_data_package() {
+            if !hito_ble_has_payload() {
                 return None;
             }
-            let len = hito_ble_data_package_len() as usize;
+            let len = hito_ble_payload_len() as usize;
             if len == 0 {
                 return None;
             }
             trace!("BluetoothZephyr::get_line len={}", len);
-            let ptr = hito_ble_data_package();
+            let ptr = hito_ble_payload();
             if ptr.is_null() {
                 return None;
             }
@@ -69,8 +70,8 @@ impl BluetoothDriver for BluetoothZephyr {
 
     fn clear_data() {
         unsafe { 
-            hito_ble_data_clear(); 
-            hito_ble_data_package_clear(); 
+            hito_ble_packet_clear(); 
+            hito_ble_payload_clear(); 
         }
     }
 
@@ -131,12 +132,12 @@ impl BluetoothZephyr {
 
     fn ble_take_buffer() -> Option<&'static [u8]> {
         unsafe {
-            let ptr = hito_ble_data();
+            let ptr = hito_ble_packet();
             if ptr.is_null() {
                 return None;
             }
 
-            let len = hito_ble_datalen() as usize;
+            let len = hito_ble_packet_len() as usize;
             if len == 0 || len > 1024 {
                 return None;
             }
@@ -163,11 +164,11 @@ impl BluetoothZephyr {
         trace!("BluetoothZephyr::send_and_wait_ok_ack");
         unsafe {
             trace!("send_and_wait_ok_ack: \n{}", hexdump!(data));
-            hito_ble_data_clear();
+            hito_ble_packet_clear();
             hito_ble_send(data.as_ptr(), data.len() as u32);
 
             let time = Time::now_ms();
-            while !hito_ble_has_data() {
+            while !hito_ble_has_packet() {
                 if Time::now_ms() - time > timeout_ms as u64 {
                     trace!("Timeout waiting for ack");
                     return false;
