@@ -10,8 +10,6 @@ use alloc::string::String;
 use crate::drivers::Time;
 use crate::drivers::serial::SerialDriver;
 
-const MAX_LINE: usize = 64 * 1024;
-
 // ----- Zephyr FFI -----
 
 #[repr(C)]
@@ -45,19 +43,29 @@ const UART_LINE_CTRL_DCD: u32 = 3;
 const UART_LINE_CTRL_DSR: u32 = 4;
 
 // ----- Simple lock-free-ish ring buffer (single producer/consumer in one thread) -----
-
 struct Ring {
-    buf: UnsafeCell<[u8; MAX_LINE]>,
     len: AtomicUsize,
 }
 unsafe impl Sync for Ring {}
 
+use crate::drivers::payload_buffer;
+
 impl Ring {
     const fn new() -> Self {
+        use crate::drivers::payload_buffer;
         Self {
-            buf: UnsafeCell::new([0u8; MAX_LINE]),
             len: AtomicUsize::new(0),
         }
+    }
+
+    #[inline]
+    fn cap(&self) -> usize {
+        payload_buffer::capacity()
+    }
+
+    #[inline]
+    fn ptr(&self) -> *mut u8 {
+        payload_buffer::as_mut_ptr()
     }
 
     #[inline]
@@ -73,12 +81,12 @@ impl Ring {
     #[inline]
     fn push(&self, b: u8) -> bool {
         let current_len = self.len.load(Ordering::Relaxed);
-        if current_len >= MAX_LINE {
+        if current_len >= self.cap() {
             return false;
         }
         
         unsafe {
-            (*self.buf.get())[current_len] = b;
+            self.ptr().add(current_len).write(b);
         }
         self.len.store(current_len + 1, Ordering::Release);
         true
@@ -91,7 +99,7 @@ impl Ring {
 
         unsafe {
             core::ptr::copy_nonoverlapping(
-                (*self.buf.get()).as_ptr(),
+                self.ptr() as *const u8,
                 out.as_mut_ptr(),
                 n
             );
@@ -105,7 +113,9 @@ impl Ring {
         if current_len == 0 {
             return false;
         }
-        unsafe { (*self.buf.get())[current_len - 1] == b'\n' }
+        unsafe { 
+            self.ptr().add(current_len - 1).read() == b'\n'
+        }
     }
 
     #[inline]
@@ -116,7 +126,7 @@ impl Ring {
         }
 
         unsafe {
-            let bytes = core::slice::from_raw_parts((*self.buf.get()).as_ptr(), current_len);
+            let bytes = core::slice::from_raw_parts(self.ptr() as *const u8, current_len);
             // Remove trailing '\n' if present
             let bytes = if bytes.last() == Some(&b'\n') {
                 &bytes[..bytes.len() - 1]
@@ -198,6 +208,7 @@ fn poll_if_ready() -> bool {
 impl SerialDriver for SerialZephyr {
 
     fn init() -> bool {
+
         // Enable USB stack
         unsafe {
             trace!("Enabling USB...");
