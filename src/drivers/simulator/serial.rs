@@ -37,17 +37,6 @@ fn state() -> &'static (Mutex<Inner>, Condvar) {
     })
 }
 
-/*
-pub trait Serial {
-    fn init();
-    fn has_data() -> bool;
-    fn get_data_len() -> usize;
-    fn get_data(out: &mut [u8]) -> usize;
-    fn clear_data();
-    fn send(data: &[u8]) -> bool;
-}
-*/
-
 impl SerialDriver for SerialDesktop {
     fn init() -> bool {
         let (lock, _cv) = state();
@@ -152,7 +141,7 @@ impl SerialDriver for SerialDesktop {
         if g.rx.is_empty() {
             return false;
         }
-        g.rx.last() == Some(&b'\n')
+        g.rx.last() == Some(&b'\n') || g.rx.last() == Some(&b'\r')
     }
 
     fn get_line() -> Option<String> {
