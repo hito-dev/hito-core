@@ -3,7 +3,7 @@
 use crate::String;
 
 use crate::drivers::bluetooth::BluetoothDriver;
-use crate::drivers::UsbSerial;
+//use crate::drivers::UsbSerial;
 
 pub struct BluetoothSimulator;
 
@@ -15,7 +15,10 @@ static mut IS_ACTIVE: bool = false;
 
 impl BluetoothDriver for BluetoothSimulator {
 
-    fn init() -> bool  { UsbSerial::init() }
+    fn init() -> bool  { 
+        //UsbSerial::init() 
+        false
+    }
 
     fn start() -> bool { 
         unsafe { IS_ACTIVE = true; }
@@ -31,14 +34,22 @@ impl BluetoothDriver for BluetoothSimulator {
     }
 
     #[allow(static_mut_refs)]
-    fn get_line() -> Option<&'static str> { unsafe {
-        CURRENT_LINE = UsbSerial::get_line();
-        Some(CURRENT_LINE.as_ref()?.as_str())
-    }}
+    fn get_line() -> Option<&'static str> { 
+        //unsafe {
+        //CURRENT_LINE = UsbSerial::get_line();
+        //Some(CURRENT_LINE.as_ref()?.as_str())
+        //}
+        None
+    }
 
-    fn clear_data() { UsbSerial::clear_data() }
+    fn clear_data() { 
+        //UsbSerial::clear_data() 
+    }
 
-    fn send(data: &[u8]) -> bool { UsbSerial::send(data) }
+    fn send(_data: &[u8]) -> bool { 
+        //UsbSerial::send(data) 
+        false
+    }
 }
 
 
