@@ -2,16 +2,14 @@
 pub mod log_backend;
 
 macro_rules! mods { ($($name:ident),*) => { $(mod $name;)* }; }
-mods!(time, serial, bluetooth, touch, display);
+mods!(time, transport, serial, bluetooth, touch, display, payload, payload_storage);
 
 #[cfg(feature = "simulator")]
 mod simulator;
 #[cfg(feature = "zephyr")]
 mod zephyr;
 
-mod payload_buffer;
-
-// 🔥 re-export all drivers at drivers root
+// re-export all drivers at drivers root
 #[allow(unused_imports)]
 pub use time::Time;
 #[allow(unused_imports)]
