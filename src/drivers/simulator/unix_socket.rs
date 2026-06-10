@@ -104,12 +104,13 @@ impl TransportDriver for UnixSocketDriver {
     }
 }
 
+// UnixSocketTransport singleton
 impl UnixSocketTransport<&'static mut [u8]> {
     pub fn take() -> Option<Self> {
         Some(
             Self::new(
-                UnixSocketDriver::new("/tmp/hito.sock"), 
-                crate::drivers::payload_storage::take()?,
+                UnixSocketDriver::new("/tmp/hito.sock"),  // default path
+                crate::drivers::payload_storage::take()?, // default payload buffer
             )
         )
     }
@@ -291,6 +292,53 @@ mod tests {
         }
 
         assert_eq!(result, Err(PayloadError::Overflow));
+
+        let _ = std::fs::remove_file(path);
+    }
+
+    #[test]
+    fn unix_socket_c0m_ping_pong() {
+
+        use crate::drivers::simulator::unix_socket::{UnixSocketDriver, UnixSocketTransport};
+        use crate::c0m::{poll, PendingCommand};
+        let path = test_socket_path("c0m-ping-pong");
+
+        let driver = UnixSocketDriver::new(&path);
+        let mut transport = UnixSocketTransport::new(driver, vec![0u8; 16]);
+
+        assert!(transport.init());
+
+        let mut client = UnixStream::connect(&path).unwrap();
+
+        // Current c0m text parser requires a separator after command name.
+        client.write_all(b"ping \n").unwrap();
+
+        let mut pending: Option<PendingCommand> = None;
+
+        for _ in 0..50 {
+
+            if pending.is_none() {
+                pending = poll(&mut transport).unwrap();
+            }
+
+            if let Some(request) = pending.take() {
+                assert_eq!(request.command_name_str(), Some("ping"));
+                assert!(transport.send(b"pong\n"));
+
+                transport.consume_payload(request.consumed);
+
+                break;
+            }
+
+            thread::sleep(Duration::from_millis(5));
+        }
+
+        assert!(pending.is_none());
+
+        let mut buf = [0u8; 16];
+        let n = client.read(&mut buf).unwrap();
+
+        assert_eq!(&buf[..n], b"pong\n");
 
         let _ = std::fs::remove_file(path);
     }
