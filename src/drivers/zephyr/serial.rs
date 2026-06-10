@@ -205,9 +205,18 @@ fn poll_if_ready() -> bool {
     true
 }
 
-impl SerialDriver for SerialZephyr {
+pub type UsbSerialTransport<B> = TransportDevice<UsbSerialDriver, B>;
 
-    fn init() -> bool {
+pub struct UsbSerialDriver {
+    ready: AtomicBool = AtomicBool::new(false),
+    connected: AtomicBool = AtomicBool::new(false),
+    // Store pointer as usize to avoid Option<&'static device> tricks in no_std.
+    dev_ptr: AtomicUsize = AtomicUsize::new(0),
+}
+
+impl TransportDriver for UsbSerialDriverZephyr {
+
+    fn init<B>(&mut self, _payload: &mut PayloadBuffer<B>) -> bool {
 
         // Enable USB stack
         unsafe {
@@ -215,6 +224,9 @@ impl SerialDriver for SerialZephyr {
             let ret = usb_enable();
             if ret == 0 {
                 ok!("USB enabled");
+            } else {
+                error!("usb_enable() returned {}", ret);
+                return false;
             }
         }
 
