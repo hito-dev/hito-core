@@ -2,12 +2,17 @@
 pub mod log_backend;
 
 macro_rules! mods { ($($name:ident),*) => { $(mod $name;)* }; }
-mods!(time, transport, serial, bluetooth, touch, display, payload, payload_storage);
+mods!(time, serial, bluetooth, touch, display);
 
 #[cfg(feature = "simulator")]
 mod simulator;
+
 #[cfg(feature = "zephyr")]
 mod zephyr;
+
+pub mod transport;
+pub mod payload;
+pub mod payload_storage;
 
 // re-export all drivers at drivers root
 #[allow(unused_imports)]
@@ -20,6 +25,8 @@ pub use bluetooth::Bluetooth;
 pub use touch::Touch;
 #[allow(unused_imports)]
 pub use display::Display;
+
+pub use transport::Transport;
 
 // Single macro that takes methods once
 // Put this somewhere common (e.g. src/drivers.rs), and ensure it's in scope.
