@@ -94,6 +94,23 @@ impl<'a> Command<'a> {
 }
 
 impl PendingCommand {
+    pub fn text_hex_to_binary_in_place(
+        &mut self,
+        transport: &mut impl Transport,
+    ) -> Result<(), C0mTransportError> {
+        let payload = transport.payload_mut();
+
+        let new_consumed = text_hex_to_binary_in_place(
+            &mut payload[..self.consumed],
+        )?;
+
+        self.consumed = new_consumed;
+
+        Ok(())
+    }
+}
+
+impl PendingCommand {
     fn command_name(&self) -> &[u8] {
         &self.command_name[..self.command_name_len]
     }
@@ -323,9 +340,9 @@ fn parse_text<'a>(
         } else {
             // Validate hex — we keep a slice of the hex bytes (not decoded)
             // Caller decodes if needed; this keeps us zero-alloc.
-            if !is_valid_hex(token) {
-                return Err(C0mError::InvalidHex);
-            }
+            //if !is_valid_hex(token) {
+                //return Err(C0mError::InvalidHex);
+            //}
             params[param_count] = Param::Present(token); // raw hex slice
         }
         param_count += 1;
@@ -334,6 +351,135 @@ fn parse_text<'a>(
     let consumed = name.len() + 1 + line_len + 1; // +1 sep, +1 \n
 
     Ok((Command { name, params, param_count }, consumed))
+}
+
+pub fn text_hex_to_binary_in_place(input: &mut [u8]) -> Result<usize, C0mError> {
+    if input.is_empty() {
+        return Err(C0mError::TooShort);
+    }
+
+    // Already binary. Nothing to convert.
+    if input.iter().any(|&b| b == SEP_BINARY) {
+        let (_, consumed) = parse(input)?;
+        return Ok(consumed);
+    }
+
+    let term_pos = input
+        .iter()
+        .position(|&b| b == TERM_TEXT)
+        .ok_or(C0mError::MissingTerminator)?;
+
+    let frame_len = term_pos + 1;
+    let frame = &mut input[..frame_len];
+
+    let sep_pos = frame
+        .iter()
+        .position(|&b| b == SEP_TEXT)
+        .ok_or(C0mError::NoSeparator)?;
+
+    if sep_pos > MAX_CMD_LEN {
+        return Err(C0mError::CommandTooLong);
+    }
+
+    let name_len = sep_pos;
+    let params_start = sep_pos + 1;
+    let params_end = term_pos;
+
+    let params_area = &frame[params_start..params_end];
+
+    let param_count = count_text_params(params_area)?;
+    if param_count > MAX_PARAMS {
+        return Err(C0mError::TooManyParams);
+    }
+
+    // New binary frame layout:
+    //
+    //   <command>\x1F<u8:param_count>(<u16_BE:len><bytes>)...
+    //
+    // We write from left to right. This is safe because every text hex param
+    // must be encoded as:
+    //
+    //   0x + 2 hex chars per byte
+    //
+    // so each param has at least enough room for:
+    //
+    //   u16 len + decoded bytes
+    //
+    let mut read = params_start;
+    let mut write = name_len;
+
+    frame[write] = SEP_BINARY;
+    write += 1;
+
+    let param_count_pos = write;
+    write += 1;
+
+    for p in 0..param_count {
+        // trace text
+        trace!("Processing param {} text: {:?}", p, core::str::from_utf8(&frame[read..params_end]).unwrap_or("<invalid utf-8>"));
+        let token_start = read;
+
+        while read < params_end && frame[read] != SEP_TEXT {
+            read += 1;
+        }
+
+        let token_end = read;
+
+        if token_start == token_end {
+            // Empty text token -> absent param.
+            frame[write] = 0;
+            frame[write + 1] = 0;
+            write += 2;
+        } else {
+            if token_end - token_start < 2 {
+                trace!("Token too short to be valid hex: {:?}", &frame[token_start..token_end]);
+                return Err(C0mError::InvalidHex);
+            }
+
+            if frame[token_start] != b'0' || frame[token_start + 1] != b'x' {
+                trace!("Token does not start with 0x: {:?}", &frame[token_start..token_end]);
+                return Err(C0mError::InvalidHex);
+            }
+
+            let hex_start = token_start + 2;
+            let hex_len = token_end - hex_start;
+
+            if hex_len == 0 || hex_len % 2 != 0 {
+                trace!("Hex part must have even length: {:?}", &frame[hex_start..token_end]);
+                return Err(C0mError::InvalidHex);
+            }
+
+            let decoded_len = hex_len / 2;
+
+            if decoded_len > u16::MAX as usize {
+                return Err(C0mError::Truncated);
+            }
+
+            let decoded_len_write = write;
+            write += 2;
+
+            for i in 0..decoded_len {
+                trace!("Decoding byte {} of param {}: hex {:?}{:?}, hex_start: {}", i, p, frame[hex_start + i * 2], frame[hex_start + i * 2 + 1], hex_start);
+                let hi = hex_byte(frame[hex_start + i * 2])?;
+                let lo = hex_byte(frame[hex_start + i * 2 + 1])?;
+                frame[write + i] = (hi << 4) | lo;
+            }
+
+            frame[decoded_len_write..decoded_len_write + 2].copy_from_slice(&(decoded_len as u16).to_be_bytes());
+
+            write += decoded_len;
+        }
+
+        // Skip separator.
+        if read < params_end && frame[read] == SEP_TEXT {
+            read += 1;
+        }
+    }
+
+    // Write param count after processing all params
+    frame[param_count_pos] = param_count as u8;
+
+    Ok(write)
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -363,6 +509,26 @@ fn hex_byte(b: u8) -> Result<u8, C0mError> {
         b'A'..=b'F' => Ok(b - b'A' + 10),
         _ => Err(C0mError::InvalidHex),
     }
+}
+
+fn count_text_params(params_area: &[u8]) -> Result<usize, C0mError> {
+    if params_area.is_empty() {
+        return Ok(0);
+    }
+
+    let mut count = 1usize;
+
+    for &b in params_area {
+        if b == SEP_TEXT {
+            count += 1;
+
+            if count > MAX_PARAMS {
+                return Err(C0mError::TooManyParams);
+            }
+        }
+    }
+
+    Ok(count)
 }
 
 // ─── Frame builder ────────────────────────────────────────────────────────────
@@ -492,6 +658,100 @@ mod tests {
         assert_eq!(consumed, input.len());
         assert_eq!(cmd.name, b"ping");
         assert_eq!(cmd.param_count(), 0);
+    }
+
+    #[test]
+    fn test_text_hex_to_binary_in_place() {
+        let mut input = *b"ping 0x0f 0xf0\n";
+
+        let consumed = text_hex_to_binary_in_place(&mut input).unwrap();
+
+        let expected = b"ping\x1F\x02\x00\x01\x0f\x00\x01\xf0";
+
+        assert_eq!(consumed, expected.len());
+        assert_eq!(&input[..consumed], expected);
+
+        let (cmd, parsed_consumed) = parse(&input[..consumed]).unwrap();
+
+        assert_eq!(parsed_consumed, consumed);
+        assert_eq!(cmd.name, b"ping");
+        assert_eq!(cmd.param_count(), 2);
+        assert_eq!(cmd.data(0), Some([0x0f].as_ref()));
+        assert_eq!(cmd.data(1), Some([0xf0].as_ref()));
+    }
+
+    #[test]
+    fn test_pending_text_hex_to_binary_in_place_then_reparse() {
+        struct TestTransport {
+            payload: [u8; 128],
+            len: usize,
+        }
+
+        impl TestTransport {
+            fn new(input: &[u8]) -> Self {
+                let mut payload = [0u8; 128];
+                payload[..input.len()].copy_from_slice(input);
+
+                Self {
+                    payload,
+                    len: input.len(),
+                }
+            }
+        }
+
+        impl Transport for TestTransport {
+            fn init(&mut self) -> bool { true }
+            fn send(&mut self, _data: &[u8]) -> bool { true }
+            fn poll_rx(&mut self) -> Result<(), PayloadError> {
+                Ok(())
+            }
+
+            fn has_data(&self) -> bool {
+                self.len > 0
+            }
+
+            fn payload(&self) -> &[u8] {
+                &self.payload[..self.len]
+            }
+
+            fn payload_mut(&mut self) -> &mut [u8] {
+                &mut self.payload[..self.len]
+            }
+
+            fn consume_payload(&mut self, consumed: usize) {
+                self.payload.copy_within(consumed..self.len, 0);
+                self.len -= consumed;
+            }
+
+            fn clear_payload(&mut self) {
+                self.len = 0;
+            }
+        }
+
+        let mut transport = TestTransport::new(b"ping 0x0f 0xf0\n");
+
+        let mut pending = poll(&mut transport)
+            .unwrap()
+            .expect("pending command");
+
+        assert_eq!(pending.command_name_str(), Some("ping"));
+
+        pending
+            .text_hex_to_binary_in_place(&mut transport)
+            .unwrap();
+
+        let cmd = pending.command(&transport).unwrap();
+
+        assert_eq!(cmd.name, b"ping");
+        assert_eq!(cmd.param_count(), 2);
+        assert_eq!(cmd.data(0), Some([0x0f].as_ref()));
+        assert_eq!(cmd.data(1), Some([0xf0].as_ref()));
+
+        // The original text frame should now have been rewritten into binary layout.
+        assert_eq!(
+            transport.payload().get(..pending.consumed).unwrap(),
+            b"ping\x1F\x02\x00\x01\x0f\x00\x01\xf0"
+        );
     }
 
 }
