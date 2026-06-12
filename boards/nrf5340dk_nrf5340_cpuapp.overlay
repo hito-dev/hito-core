@@ -133,3 +133,9 @@
 &i2c0 {
   status = "disabled";
 };
+&usbd {
+    cdc_acm_uart0: cdc_acm_uart0 {
+        compatible = "zephyr,cdc-acm-uart";
+        label = "CDC_ACM_0";
+    };
+};
