@@ -1,18 +1,25 @@
-use crate::drivers::payload::{PayloadBuffer, PayloadError};
+use crate::drivers::payload::{PayloadBuffer, Error};
 
 // Transport trait for communication with external world, e.g. Bluetooth, USB, NFC, QR
 pub trait Transport {
 
     fn init(&mut self) -> bool; 
-    fn poll_rx(&mut self) -> Result<(), PayloadError>;
+    fn poll_rx(&mut self) -> Result<(), Error>;
 
     fn has_data(&self) -> bool;
     fn payload(&self)  -> &[u8];
+    fn payload_mut(&mut self) -> &mut [u8];
 
     fn consume_payload(&mut self, n: usize);
     fn clear_payload(&mut self);
 
     fn send(&mut self, data: &[u8]) -> bool;
+
+    fn send_hex(&mut self, data: &[u8]) -> bool {
+        return false;
+        //let hex_str = hex::encode(data);
+        ////self.send(hex_str.as_bytes())
+    }
 }
 
 // TransportDriver trait for implementing specific transport drivers for specific platforms, e.g. Bluetooth, USB, NFC, QR
@@ -21,7 +28,7 @@ pub trait TransportDriver {
     where 
         B: AsRef<[u8]> + AsMut<[u8]>;
 
-    fn poll_rx<B>(&mut self, payload: &mut PayloadBuffer<B>) -> Result<(), PayloadError>
+    fn poll_rx<B>(&mut self, payload: &mut PayloadBuffer<B>) -> Result<(), Error>
     where
         B: AsRef<[u8]> + AsMut<[u8]>;
 
@@ -63,9 +70,9 @@ where
         self.initialized
     }
 
-    fn poll_rx(&mut self) -> Result<(), PayloadError> {
+    fn poll_rx(&mut self) -> Result<(), Error> {
         if !self.initialized {
-            return Err(PayloadError::NotInitialized)
+            return Err(Error::NotInitialized)
         }
         self.driver.poll_rx(&mut self.payload)
     }
@@ -76,6 +83,10 @@ where
 
     fn payload(&self) -> &[u8] {
         self.payload.as_slice()
+    }
+
+    fn payload_mut(&mut self) -> &mut [u8] {
+        self.payload.storage_mut()
     }
 
     fn consume_payload(&mut self, n: usize) {
@@ -175,7 +186,7 @@ mod tests {
             true
         }
 
-        fn poll_rx<B>(&mut self, payload: &mut PayloadBuffer<B>) -> Result<(), PayloadError>
+        fn poll_rx<B>(&mut self, payload: &mut PayloadBuffer<B>) -> Result<(), Error>
         where
             B: AsRef<[u8]> + AsMut<[u8]>,
         {
@@ -262,7 +273,7 @@ mod tests {
 
         assert_eq!(
             transport.poll_rx(),
-            Err(PayloadError::Overflow)
+            Err(Error::Overflow)
         );
     }
 
@@ -284,7 +295,7 @@ mod tests {
 
         assert_eq!(
             transport.poll_rx(),
-            Err(PayloadError::NotInitialized)
+            Err(Error::NotInitialized)
         );
 
         assert!(!transport.has_data());

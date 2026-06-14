@@ -19,6 +19,29 @@ pub mod allocator;
 pub use alloc::string::String;
 pub use alloc::vec::Vec;
 
+pub enum Error {
+    Payload(crate::drivers::payload::Error),
+    C0m(crate::c0m::Error),
+}
+/*
+pub enum Error {
+    Payload(payload::Error),
+    C0m(c0m::Error),
+}
+impl From<payload::Error> for Error {
+    fn from(err: PayloadError) -> Self {
+        Self::Payload(err)
+    }
+}
+impl From<C0mError> for Error {
+    fn from(err: C0mError) -> Self {
+        C0mTransportError::Malformed(err)
+    }
+}
+*/
+
+pub type Result<T> = core::result::Result<T, Error>;
+
 // macro to simplify main function definition in hito applications
 #[macro_export]
 macro_rules! hito_main {

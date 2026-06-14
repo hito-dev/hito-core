@@ -11,7 +11,7 @@ use crate::drivers::Time;
 // use crate::drivers::serial::SerialDriver;
 
 use crate::drivers::{
-    payload::{PayloadBuffer, PayloadError},
+    payload::{PayloadBuffer, Error},
     transport::{TransportDevice, TransportDriver}
 };
 
@@ -349,7 +349,7 @@ impl TransportDriver for UsbSerialDriverZephyr {
         true
     }
 
-    fn poll_rx<B>(&mut self, payload: &mut PayloadBuffer<B>) -> Result<(), PayloadError>
+    fn poll_rx<B>(&mut self, payload: &mut PayloadBuffer<B>) -> Result<(), Error>
     where
         B: AsRef<[u8]> + AsMut<[u8]>,
     {

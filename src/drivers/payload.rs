@@ -8,9 +8,10 @@ pub struct PayloadBuffer<B> {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum PayloadError {
+pub enum Error {
     Locked,
     Overflow,
+    PayloadChanged,
     NotInitialized,
 }
 
@@ -31,13 +32,13 @@ where
         &self.buf.as_ref()[..self.len]
     }
 
-    pub fn push(&mut self, data: &[u8]) -> Result<(), PayloadError> {
+    pub fn push(&mut self, data: &[u8]) -> Result<(), Error> {
         if self.locked {
-            return Err(PayloadError::Locked);
+            return Err(Error::Locked);
         }
 
         if self.len + data.len() > self.buf.as_ref().len() {
-            return Err(PayloadError::Overflow);
+            return Err(Error::Overflow);
         }
         let end = self.len + data.len();
         self.buf.as_mut()[self.len..end].copy_from_slice(data);

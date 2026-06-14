@@ -3,7 +3,7 @@ use std::{
     os::unix::net::{UnixListener, UnixStream},
 };
 use crate::drivers::{
-    payload::{PayloadBuffer, PayloadError},
+    payload::{PayloadBuffer, Error},
     transport::{TransportDevice, TransportDriver}
 };
 
@@ -45,7 +45,7 @@ impl TransportDriver for UnixSocketDriver {
         true
     }
 
-    fn poll_rx<B>(&mut self, payload: &mut PayloadBuffer<B>) -> Result<(), PayloadError>
+    fn poll_rx<B>(&mut self, payload: &mut PayloadBuffer<B>) -> Result<(), Error>
     where
         B: AsRef<[u8]> + AsMut<[u8]>,
     {
@@ -284,14 +284,14 @@ mod tests {
         for _ in 0..50 {
             result = transport.poll_rx();
 
-            if result == Err(PayloadError::Overflow) {
+            if result == Err(Error::Overflow) {
                 break;
             }
 
             thread::sleep(Duration::from_millis(5));
         }
 
-        assert_eq!(result, Err(PayloadError::Overflow));
+        assert_eq!(result, Err(Error::Overflow));
 
         let _ = std::fs::remove_file(path);
     }
