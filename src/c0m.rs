@@ -12,7 +12,7 @@
 ///
 /// Absent (optional) parameters are encoded as zero-length: [0x00, 0x00]
 use crate::drivers::transport::Transport;
-use crate::drivers::payload::PayloadError;
+use crate::drivers::payload;
 
 /// Maximum number of parameters a command can carry.
 pub const MAX_PARAMS: usize = 8; // TODO - remove this limit or make it configurable
@@ -74,18 +74,21 @@ impl<'a> Command<'a> {
     }
 
     /// Returns the parameter at `index`, or None if out of range.
-    pub fn param(&self, index: usize) -> Option<Param<'a>> {
+    pub fn param(&self, index: usize) -> Result<&'a [u8], Error> {
         if index < self.param_count {
-            Some(self.params[index])
+            match self.params[index] {
+                Param::Present(data) => Ok(data),
+                Param::Absent => Err(Error::MissingParameter),
+            }
         } else {
-            None
+            return Err(Error::MissingParameter);
         }
     }
 
     /// Convenience: get present data at index or None.
-    pub fn data(&self, index: usize) -> Option<&'a [u8]> {
-        self.param(index)?.data()
-    }
+    //pub fn data(&self, index: usize) -> Option<&'a [u8]> {
+        //self.param(index)?.data()
+    //}
 
     /// Returns command name as str (if valid UTF-8).
     pub fn name_str(&self) -> Option<&str> {
@@ -95,16 +98,18 @@ impl<'a> Command<'a> {
 
 impl PendingCommand {
     pub fn text_hex_to_binary_in_place(
-        &mut self,
+        &self,
         transport: &mut impl Transport,
-    ) -> Result<(), C0mTransportError> {
+    ) -> Result<(), Error> {
         let payload = transport.payload_mut();
 
-        let new_consumed = text_hex_to_binary_in_place(
+        let _new_consumed = text_hex_to_binary_in_place(
             &mut payload[..self.consumed],
         )?;
 
-        self.consumed = new_consumed;
+        // Do not update self.consumed.
+        // The converted binary frame is shorter, but complete() must consume
+        // the original text frame length so queued frames stay aligned.
 
         Ok(())
     }
@@ -118,16 +123,22 @@ impl PendingCommand {
         core::str::from_utf8(self.command_name()).ok()
     }
 
-    pub fn command<'a>(&self, transport: &'a impl Transport) -> Result<Command<'a>, C0mTransportError> {
+    pub fn command<'a>(&self, transport: &'a impl Transport) -> Result<Command<'a>, Error> {
         // We only parse the command name in poll(), so we need to re-parse the full command here.
         // This is a bit redundant but keeps the parsing logic simple and zero-copy.
         let payload = transport.payload();
         let frame = &payload[..self.consumed];
 
         let (cmd, consumed) = parse(frame)?;
+
         if consumed != self.consumed {
-            // This should never happen if the parser is consistent, but we check just in case.
-            return Err(C0mTransportError::PayloadChanged);
+            // This is allowed only after text_hex_to_binary_in_place(),
+            // because the rewritten binary frame is shorter than the original text frame.
+            let is_binary = frame.get(cmd.name.len()).copied() == Some(SEP_BINARY);
+
+            if !is_binary || consumed > self.consumed {
+                return Err(Error::from(payload::Error::PayloadChanged));
+            }
         }
 
         Ok(cmd)
@@ -138,27 +149,10 @@ impl PendingCommand {
     }
 }
 
-#[derive(Debug)]
-pub enum C0mTransportError {
-    PayloadChanged,
-    PayloadError(PayloadError),
-    Malformed(C0mError),
-}
-impl From<PayloadError> for C0mTransportError {
-    fn from(err: PayloadError) -> Self {
-        C0mTransportError::PayloadError(err)
-    }
-}
-impl From<C0mError> for C0mTransportError {
-    fn from(err: C0mError) -> Self {
-        C0mTransportError::Malformed(err)
-    }
-}
-
 pub fn poll<T: Transport>(
     transport: &mut T,
     //_now_ms: u64,
-) -> Result<Option<PendingCommand>, C0mTransportError> {
+) -> Result<Option<PendingCommand>, Error> {
     transport.poll_rx()?;
 
     if !transport.has_data() {
@@ -178,14 +172,14 @@ pub fn poll<T: Transport>(
                 command_name_len: cmd.name.len(),
             }))
         }
-        Err(C0mError::MissingTerminator) | Err(C0mError::TooShort) | Err(C0mError::Truncated) => {
+        Err(Error::MissingTerminator) | Err(Error::TooShort) | Err(Error::Truncated) => {
             // Wait for more data
             Ok(None)
         }
         Err(err) => {
             // Parsing error — consume all data to avoid repeated errors
             transport.clear_payload();
-            Err(C0mTransportError::Malformed(err))
+            Err(err)
         }
     }
 }
@@ -193,7 +187,7 @@ pub fn poll<T: Transport>(
 // ─── Error ───────────────────────────────────────────────────────────────────
 
 #[derive(Debug, PartialEq, Eq)]
-pub enum C0mError {
+pub enum Error {
     /// Input buffer is empty or too short.
     TooShort,
     /// Command name exceeds MAX_CMD_LEN.
@@ -208,6 +202,16 @@ pub enum C0mError {
     InvalidHex,
     /// Text frame missing newline terminator.
     MissingTerminator,
+    // Param index out of range.
+    MissingParameter,
+    // Unknown command 
+    UnknownCommand,
+    Payload(payload::Error),
+}
+impl From<payload::Error> for Error {
+    fn from(err: payload::Error) -> Self {
+        Error::Payload(err)
+    }
 }
 
 // ─── Parser ──────────────────────────────────────────────────────────────────
@@ -217,9 +221,9 @@ pub enum C0mError {
 /// Automatically detects text vs binary mode from the separator byte.
 /// Returns a [`Command`] borrowing from `input` (zero-copy),
 /// and the number of bytes consumed.
-pub fn parse(input: &[u8]) -> Result<(Command<'_>, usize), C0mError> {
+pub fn parse(input: &[u8]) -> Result<(Command<'_>, usize), Error> {
     if input.is_empty() {
-        return Err(C0mError::TooShort);
+        return Err(Error::TooShort);
     }
 
     // Allow zero-param text command:
@@ -234,7 +238,7 @@ pub fn parse(input: &[u8]) -> Result<(Command<'_>, usize), C0mError> {
             && !before_term.contains(&SEP_BINARY)
         {
             if before_term.len() > MAX_CMD_LEN {
-                return Err(C0mError::CommandTooLong);
+                return Err(Error::CommandTooLong);
             }
 
             return Ok((
@@ -253,10 +257,10 @@ pub fn parse(input: &[u8]) -> Result<(Command<'_>, usize), C0mError> {
     let sep_pos = input
         .iter()
         .position(|&b| b == SEP_TEXT || b == SEP_BINARY)
-        .ok_or(C0mError::NoSeparator)?;
+        .ok_or(Error::NoSeparator)?;
 
     if sep_pos > MAX_CMD_LEN {
-        return Err(C0mError::CommandTooLong);
+        return Err(Error::CommandTooLong);
     }
 
     let name = &input[..sep_pos];
@@ -275,14 +279,14 @@ pub fn parse(input: &[u8]) -> Result<(Command<'_>, usize), C0mError> {
 fn parse_binary<'a>(
     name: &'a [u8],
     rest: &'a [u8],
-) -> Result<(Command<'a>, usize), C0mError> {
+) -> Result<(Command<'a>, usize), Error> {
     // First byte: param count
     if rest.is_empty() {
-        return Err(C0mError::TooShort);
+        return Err(Error::TooShort);
     }
     let param_count = rest[0] as usize;
     if param_count > MAX_PARAMS {
-        return Err(C0mError::TooManyParams);
+        return Err(Error::TooManyParams);
     }
 
     let mut params = [Param::Absent; MAX_PARAMS];
@@ -291,7 +295,7 @@ fn parse_binary<'a>(
     for i in 0..param_count {
         // Need 2 bytes for u16 length
         if cursor + 2 > rest.len() {
-            return Err(C0mError::Truncated);
+            return Err(Error::Truncated);
         }
         let len = u16::from_be_bytes([rest[cursor], rest[cursor + 1]]) as usize;
         cursor += 2;
@@ -300,7 +304,7 @@ fn parse_binary<'a>(
             params[i] = Param::Absent;
         } else {
             if cursor + len > rest.len() {
-                return Err(C0mError::Truncated);
+                return Err(Error::Truncated);
             }
             params[i] = Param::Present(&rest[cursor..cursor + len]);
             cursor += len;
@@ -318,12 +322,12 @@ fn parse_binary<'a>(
 fn parse_text<'a>(
     name: &'a [u8],
     rest: &'a [u8],
-) -> Result<(Command<'a>, usize), C0mError> {
+) -> Result<(Command<'a>, usize), Error> {
     // Find newline terminator
     let line_len = rest
         .iter()
         .position(|&b| b == TERM_TEXT)
-        .ok_or(C0mError::MissingTerminator)?;
+        .ok_or(Error::MissingTerminator)?;
 
     let line = &rest[..line_len];
 
@@ -333,7 +337,7 @@ fn parse_text<'a>(
     // Split on SP, decode each hex token
     for token in line.split(|&b| b == SEP_TEXT) {
         if param_count >= MAX_PARAMS {
-            return Err(C0mError::TooManyParams);
+            return Err(Error::TooManyParams);
         }
         if token.is_empty() {
             params[param_count] = Param::Absent;
@@ -341,7 +345,7 @@ fn parse_text<'a>(
             // Validate hex — we keep a slice of the hex bytes (not decoded)
             // Caller decodes if needed; this keeps us zero-alloc.
             //if !is_valid_hex(token) {
-                //return Err(C0mError::InvalidHex);
+                //return Err(Error::InvalidHex);
             //}
             params[param_count] = Param::Present(token); // raw hex slice
         }
@@ -353,9 +357,9 @@ fn parse_text<'a>(
     Ok((Command { name, params, param_count }, consumed))
 }
 
-pub fn text_hex_to_binary_in_place(input: &mut [u8]) -> Result<usize, C0mError> {
+pub fn text_hex_to_binary_in_place(input: &mut [u8]) -> Result<usize, Error> {
     if input.is_empty() {
-        return Err(C0mError::TooShort);
+        return Err(Error::TooShort);
     }
 
     // Already binary. Nothing to convert.
@@ -367,7 +371,7 @@ pub fn text_hex_to_binary_in_place(input: &mut [u8]) -> Result<usize, C0mError> 
     let term_pos = input
         .iter()
         .position(|&b| b == TERM_TEXT)
-        .ok_or(C0mError::MissingTerminator)?;
+        .ok_or(Error::MissingTerminator)?;
 
     let frame_len = term_pos + 1;
     let frame = &mut input[..frame_len];
@@ -375,10 +379,10 @@ pub fn text_hex_to_binary_in_place(input: &mut [u8]) -> Result<usize, C0mError> 
     let sep_pos = frame
         .iter()
         .position(|&b| b == SEP_TEXT)
-        .ok_or(C0mError::NoSeparator)?;
+        .ok_or(Error::NoSeparator)?;
 
     if sep_pos > MAX_CMD_LEN {
-        return Err(C0mError::CommandTooLong);
+        return Err(Error::CommandTooLong);
     }
 
     let name_len = sep_pos;
@@ -389,7 +393,7 @@ pub fn text_hex_to_binary_in_place(input: &mut [u8]) -> Result<usize, C0mError> 
 
     let param_count = count_text_params(params_area)?;
     if param_count > MAX_PARAMS {
-        return Err(C0mError::TooManyParams);
+        return Err(Error::TooManyParams);
     }
 
     // New binary frame layout:
@@ -433,12 +437,12 @@ pub fn text_hex_to_binary_in_place(input: &mut [u8]) -> Result<usize, C0mError> 
         } else {
             if token_end - token_start < 2 {
                 trace!("Token too short to be valid hex: {:?}", &frame[token_start..token_end]);
-                return Err(C0mError::InvalidHex);
+                return Err(Error::InvalidHex);
             }
 
             if frame[token_start] != b'0' || frame[token_start + 1] != b'x' {
                 trace!("Token does not start with 0x: {:?}", &frame[token_start..token_end]);
-                return Err(C0mError::InvalidHex);
+                return Err(Error::InvalidHex);
             }
 
             let hex_start = token_start + 2;
@@ -446,13 +450,13 @@ pub fn text_hex_to_binary_in_place(input: &mut [u8]) -> Result<usize, C0mError> 
 
             if hex_len == 0 || hex_len % 2 != 0 {
                 trace!("Hex part must have even length: {:?}", &frame[hex_start..token_end]);
-                return Err(C0mError::InvalidHex);
+                return Err(Error::InvalidHex);
             }
 
             let decoded_len = hex_len / 2;
 
             if decoded_len > u16::MAX as usize {
-                return Err(C0mError::Truncated);
+                return Err(Error::Truncated);
             }
 
             let decoded_len_write = write;
@@ -492,9 +496,9 @@ fn is_valid_hex(bytes: &[u8]) -> bool {
 
 /// Decode a hex slice into `out`. Returns number of bytes written.
 /// `out` must be at least `hex.len() / 2` bytes long.
-pub fn decode_hex(hex: &[u8], out: &mut [u8]) -> Result<usize, C0mError> {
+pub fn decode_hex(hex: &[u8], out: &mut [u8]) -> Result<usize, Error> {
     if hex.len() % 2 != 0 || out.len() < hex.len() / 2 {
-        return Err(C0mError::InvalidHex);
+        return Err(Error::InvalidHex);
     }
     for (i, chunk) in hex.chunks(2).enumerate() {
         out[i] = hex_byte(chunk[0])? << 4 | hex_byte(chunk[1])?;
@@ -502,16 +506,16 @@ pub fn decode_hex(hex: &[u8], out: &mut [u8]) -> Result<usize, C0mError> {
     Ok(hex.len() / 2)
 }
 
-fn hex_byte(b: u8) -> Result<u8, C0mError> {
+fn hex_byte(b: u8) -> Result<u8, Error> {
     match b {
         b'0'..=b'9' => Ok(b - b'0'),
         b'a'..=b'f' => Ok(b - b'a' + 10),
         b'A'..=b'F' => Ok(b - b'A' + 10),
-        _ => Err(C0mError::InvalidHex),
+        _ => Err(Error::InvalidHex),
     }
 }
 
-fn count_text_params(params_area: &[u8]) -> Result<usize, C0mError> {
+fn count_text_params(params_area: &[u8]) -> Result<usize, Error> {
     if params_area.is_empty() {
         return Ok(0);
     }
@@ -523,7 +527,7 @@ fn count_text_params(params_area: &[u8]) -> Result<usize, C0mError> {
             count += 1;
 
             if count > MAX_PARAMS {
-                return Err(C0mError::TooManyParams);
+                return Err(Error::TooManyParams);
             }
         }
     }
@@ -540,13 +544,13 @@ pub fn encode_binary<'a>(
     cmd: &[u8],
     params: &[Option<&[u8]>],
     out: &mut [u8],
-) -> Result<usize, C0mError> {
+) -> Result<usize, Error> {
     let mut pos = 0;
 
     // command name
     let needed = cmd.len() + 1 + 1 + params.iter().map(|p| 2 + p.map_or(0, |d| d.len())).sum::<usize>();
     if out.len() < needed {
-        return Err(C0mError::Truncated);
+        return Err(Error::Truncated);
     }
 
     out[pos..pos + cmd.len()].copy_from_slice(cmd);
@@ -637,8 +641,8 @@ mod tests {
     fn test_text_no_newline() {
 
         let input = b"zcash.sign deadbeef";
-        //assert_eq!(parse(input), Err(C0mError::MissingTerminator));
-        assert!(matches!(parse(input), Err(C0mError::MissingTerminator)));
+        //assert_eq!(parse(input), Err(Error::MissingTerminator));
+        assert!(matches!(parse(input), Err(Error::MissingTerminator)));
     }
 
     #[test]
@@ -750,8 +754,114 @@ mod tests {
         // The original text frame should now have been rewritten into binary layout.
         assert_eq!(
             transport.payload().get(..pending.consumed).unwrap(),
-            b"ping\x1F\x02\x00\x01\x0f\x00\x01\xf0"
+            b"ping\x1F\x02\x00\x01\x0f\x00\x01\xf0f0\n"
         );
+    }
+
+    #[test]
+    fn test_pending_text_hex_to_binary_keeps_next_command_aligned() {
+        struct TestTransport {
+            payload: [u8; 128],
+            len: usize,
+        }
+
+        impl TestTransport {
+            fn new(input: &[u8]) -> Self {
+                let mut payload = [0u8; 128];
+                payload[..input.len()].copy_from_slice(input);
+
+                Self {
+                    payload,
+                    len: input.len(),
+                }
+            }
+        }
+
+        impl Transport for TestTransport {
+            fn init(&mut self) -> bool {
+                true
+            }
+
+            fn send(&mut self, _data: &[u8]) -> bool {
+                true
+            }
+
+            fn poll_rx(&mut self) -> Result<(), PayloadError> {
+                Ok(())
+            }
+
+            fn has_data(&self) -> bool {
+                self.len > 0
+            }
+
+            fn payload(&self) -> &[u8] {
+                &self.payload[..self.len]
+            }
+
+            fn payload_mut(&mut self) -> &mut [u8] {
+                &mut self.payload[..self.len]
+            }
+
+            fn consume_payload(&mut self, consumed: usize) {
+                self.payload.copy_within(consumed..self.len, 0);
+                self.len -= consumed;
+            }
+
+            fn clear_payload(&mut self) {
+                self.len = 0;
+            }
+        }
+
+        let input = b"ping 0x0f 0xf0\npong with_txt\n";
+        let first_frame_len = b"ping 0x0f 0xf0\n".len();
+
+        let mut transport = TestTransport::new(input);
+
+        let mut pending = poll(&mut transport)
+            .unwrap()
+            .expect("first pending command");
+
+        assert_eq!(pending.command_name_str(), Some("ping"));
+        assert_eq!(pending.consumed, first_frame_len);
+
+        pending
+            .text_hex_to_binary_in_place(&mut transport)
+            .unwrap();
+
+        // consumed must remain the original text-frame length.
+        assert_eq!(pending.consumed, first_frame_len);
+
+        let cmd = pending.command(&transport).unwrap();
+
+        assert_eq!(cmd.name, b"ping");
+        assert_eq!(cmd.param_count(), 2);
+        assert_eq!(cmd.data(0), Some([0x0f].as_ref()));
+        assert_eq!(cmd.data(1), Some([0xf0].as_ref()));
+
+        // The rewritten binary frame exists at the start of the original frame.
+        let expected_binary_prefix = b"ping\x1F\x02\x00\x01\x0f\x00\x01\xf0";
+        assert_eq!(
+            &transport.payload()[..expected_binary_prefix.len()],
+            expected_binary_prefix
+        );
+
+        // Completing must consume the original text frame length,
+        // not the shortened binary frame length.
+        pending.complete(&mut transport);
+
+        assert_eq!(transport.payload(), b"pong with_txt\n");
+
+        let pending2 = poll(&mut transport)
+            .unwrap()
+            .expect("second pending command");
+
+        assert_eq!(pending2.command_name_str(), Some("pong"));
+
+        let cmd2 = pending2.command(&transport).unwrap();
+
+        assert_eq!(cmd2.name, b"pong");
+        assert_eq!(cmd2.param_count(), 1);
+        assert_eq!(cmd2.data(0), Some(b"with_txt".as_ref()));
     }
 
 }
