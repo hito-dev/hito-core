@@ -175,7 +175,7 @@ pub fn poll<T: Transport>(
                 command_name_len: cmd.name.len(),
             }))
         }
-        Err(Error::MissingTerminator) | Err(Error::TooShort) | Err(Error::Truncated) => {
+        Err(Error::MissingTerminator) | Err(Error::TooShort) | Err(Error::Truncated) | Err(Error::NoSeparator) => {
             // Wait for more data
             Ok(None)
         }
