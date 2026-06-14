@@ -86,9 +86,12 @@ impl<'a> Command<'a> {
     }
 
     /// Convenience: get present data at index or None.
-    //pub fn data(&self, index: usize) -> Option<&'a [u8]> {
-        //self.param(index)?.data()
-    //}
+    pub fn data(&self, index: usize) -> Option<&'a [u8]> {
+        match self.param(index) {
+            Ok(data) => Some(data),
+            Err(_) => None,
+        }
+    }
 
     /// Returns command name as str (if valid UTF-8).
     pub fn name_str(&self) -> Option<&str> {
@@ -622,8 +625,8 @@ mod tests {
 
         let (cmd, _) = parse(&buf[..written]).unwrap();
         assert_eq!(cmd.param_count(), 2);
-        assert_eq!(cmd.param(0), Some(Param::Present(pczt.as_ref())));
-        assert_eq!(cmd.param(1), Some(Param::Absent));
+        assert_eq!(cmd.data(0), Some(pczt.as_ref()));
+        assert_eq!(cmd.data(1), None);
     }
 
     #[test]
@@ -706,7 +709,7 @@ mod tests {
         impl Transport for TestTransport {
             fn init(&mut self) -> bool { true }
             fn send(&mut self, _data: &[u8]) -> bool { true }
-            fn poll_rx(&mut self) -> Result<(), PayloadError> {
+            fn poll_rx(&mut self) -> Result<(), payload::Error> {
                 Ok(())
             }
 
@@ -734,7 +737,7 @@ mod tests {
 
         let mut transport = TestTransport::new(b"ping 0x0f 0xf0\n");
 
-        let mut pending = poll(&mut transport)
+        let pending = poll(&mut transport)
             .unwrap()
             .expect("pending command");
 
@@ -786,7 +789,7 @@ mod tests {
                 true
             }
 
-            fn poll_rx(&mut self) -> Result<(), PayloadError> {
+            fn poll_rx(&mut self) -> Result<(), payload::Error> {
                 Ok(())
             }
 
@@ -817,7 +820,7 @@ mod tests {
 
         let mut transport = TestTransport::new(input);
 
-        let mut pending = poll(&mut transport)
+        let pending = poll(&mut transport)
             .unwrap()
             .expect("first pending command");
 
