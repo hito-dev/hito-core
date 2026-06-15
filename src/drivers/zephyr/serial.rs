@@ -211,7 +211,7 @@ impl UsbSerialDriverZephyr {
 
     fn push_byte(&self, b: u8, payload: &mut [u8]) -> bool
     {
-        debug!("Received byte: {}", b);
+        //debug!("Received byte: {}", b);
         let current_len = self.current_len.load(Ordering::Relaxed);
         if current_len >= payload.len() {
             debug!("Payload buffer full, dropping byte");
