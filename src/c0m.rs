@@ -24,6 +24,7 @@ pub const MAX_CMD_LEN: usize = 64;
 pub const SEP_TEXT: u8 = 0x20;   // space
 pub const SEP_BINARY: u8 = 0x1F; // unit separator ␟
 pub const TERM_TEXT: u8 = 0x0A;  // newline \n
+pub const CARRIAGE_RETURN: u8 = 0x0D; // \r
 
 // ─── Param ───────────────────────────────────────────────────────────────────
 
@@ -233,7 +234,7 @@ pub fn parse(input: &[u8]) -> Result<(Command<'_>, usize), Error> {
     //
     //   ping\n
     //
-    if let Some(pos) = input.iter().position(|&b| b == TERM_TEXT) {
+    if let Some(pos) = input.iter().position(|&b| b == TERM_TEXT || b == CARRIAGE_RETURN) {
         let before_term = &input[..pos];
 
         if !before_term.is_empty()
@@ -244,14 +245,16 @@ pub fn parse(input: &[u8]) -> Result<(Command<'_>, usize), Error> {
                 return Err(Error::CommandTooLong);
             }
 
-            return Ok((
-                Command {
-                    name: before_term,
-                    params: [Param::Absent; MAX_PARAMS],
-                    param_count: 0,
-                },
-                pos + 1,
-            ));
+            if let Some(r_pos) = input.iter().rposition(|&b| b == TERM_TEXT || b == CARRIAGE_RETURN) {
+                return Ok((
+                    Command {
+                        name: before_term,
+                        params: [Param::Absent; MAX_PARAMS],
+                        param_count: 0,
+                    },
+                    r_pos + 1,
+                ));
+            }
         }
     }
 
@@ -329,7 +332,7 @@ fn parse_text<'a>(
     // Find newline terminator
     let line_len = rest
         .iter()
-        .position(|&b| b == TERM_TEXT)
+        .position(|&b| b == TERM_TEXT || b == CARRIAGE_RETURN)
         .ok_or(Error::MissingTerminator)?;
 
     let line = &rest[..line_len];
@@ -373,7 +376,7 @@ pub fn text_hex_to_binary_in_place(input: &mut [u8]) -> Result<usize, Error> {
 
     let term_pos = input
         .iter()
-        .position(|&b| b == TERM_TEXT)
+        .position(|&b| b == TERM_TEXT || b == CARRIAGE_RETURN)
         .ok_or(Error::MissingTerminator)?;
 
     let frame_len = term_pos + 1;
@@ -659,6 +662,17 @@ mod tests {
     #[test]
     fn test_text_zero_param_command() {
         let input = b"ping\n";
+
+        let (cmd, consumed) = parse(input).unwrap();
+
+        assert_eq!(consumed, input.len());
+        assert_eq!(cmd.name, b"ping");
+        assert_eq!(cmd.param_count(), 0);
+    }
+
+    #[test]
+    fn test_text_zero_param_command_handles_end_separator() {
+        let input = b"ping\r\n\r\n\r\n";
 
         let (cmd, consumed) = parse(input).unwrap();
 
