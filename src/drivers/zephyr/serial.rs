@@ -242,9 +242,9 @@ impl UsbSerialDriverZephyr {
                 break; // no more data
             }
 
-            unsafe {
-                uart_poll_out(d, c); // echo back for testing
-            }
+            // unsafe {
+            //     uart_poll_out(d, c); // echo back for testing
+            // }
             
             debug!("Received byte: {}", c);
 
