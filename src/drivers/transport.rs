@@ -1,5 +1,7 @@
 use crate::drivers::payload::{PayloadBuffer, Error};
 
+static HEX: [u8; 16] = *b"0123456789abcdef";
+
 // Transport trait for communication with external world, e.g. Bluetooth, USB, NFC, QR
 pub trait Transport {
 
@@ -16,10 +18,38 @@ pub trait Transport {
     fn send(&mut self, data: &[u8]) -> bool;
 
     fn send_hex(&mut self, data: &[u8]) -> bool {
-        return false;
-        //let hex_str = hex::encode(data);
-        ////self.send(hex_str.as_bytes())
+
+        let mut buf = [0u8; 512];
+
+        let mut sent = 0;
+
+        while sent < data.len() {
+
+            let mut prefix = 0;
+
+            if sent == 0 {
+                buf[0] = b'0';
+                buf[1] = b'x';
+                prefix += 2;
+            }
+
+            let chunk_size = core::cmp::min((buf.len() - prefix) / 2, data.len() - sent);
+
+            let chunk = &data[sent..sent + chunk_size];
+
+            for (i, byte) in chunk.iter().enumerate() {
+                buf[prefix + i * 2] = HEX[(byte >> 4) as usize];
+                buf[prefix + i * 2 + 1] = HEX[(byte & 0x0F) as usize];
+            }
+
+            self.send(&buf[..prefix + chunk_size * 2]);
+
+            sent += chunk_size;
+        }
+
+        return true;
     }
+
 }
 
 // TransportDriver trait for implementing specific transport drivers for specific platforms, e.g. Bluetooth, USB, NFC, QR
@@ -299,6 +329,34 @@ mod tests {
         );
 
         assert!(!transport.has_data());
+    }
+
+    #[test]
+    fn transport_send_hex_sends_hex_representation() {
+        let driver = FakeDriver::new();
+        let mut transport = TransportDevice::new(driver, [0u8; 128]);
+
+        transport.init();
+
+        assert!(transport.send_hex(b"\x01\x23\x45\x67\x89\xAB\xCD\xEF"));
+        assert_eq!(transport.driver.send_data, b"0x0123456789abcdef");
+    }
+
+    #[test]
+    fn transport_send_hex_sends_hex_representation_big_buffer() {
+        let driver = FakeDriver::new();
+        let mut transport = TransportDevice::new(driver, [0u8; 128]);
+
+        transport.init();
+
+        let buf = [0x05u8; 1024];
+
+        let pattern = [0x30u8, 0x35u8]; // "05" in hex
+        let buf_hex: Vec<u8> = pattern.iter().copied().cycle().take(2048).collect();
+        let buf_hex = [&b"0x"[..], &buf_hex[..]].concat();
+
+        assert!(transport.send_hex(&buf));
+        assert_eq!(transport.driver.send_data, buf_hex);
     }
 }
 
