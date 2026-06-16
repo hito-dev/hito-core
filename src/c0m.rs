@@ -1,4 +1,5 @@
-/// c0m 
+use crate::drivers::payload;
+/// c0m
 ///
 /// A minimal, zero-alloc, zero-copy command protocol for embedded/HWW use.
 ///
@@ -12,7 +13,6 @@
 ///
 /// Absent (optional) parameters are encoded as zero-length: [0x00, 0x00]
 use crate::drivers::transport::Transport;
-use crate::drivers::payload;
 
 /// Maximum number of parameters a command can carry.
 pub const MAX_PARAMS: usize = 8; // TODO - remove this limit or make it configurable
@@ -21,9 +21,9 @@ pub const MAX_PARAMS: usize = 8; // TODO - remove this limit or make it configur
 pub const MAX_CMD_LEN: usize = 64;
 
 /// Separator bytes
-pub const SEP_TEXT: u8 = 0x20;   // space
+pub const SEP_TEXT: u8 = 0x20; // space
 pub const SEP_BINARY: u8 = 0x1F; // unit separator ␟
-pub const TERM_TEXT: u8 = 0x0A;  // newline \n
+pub const TERM_TEXT: u8 = 0x0A; // newline \n
 pub const CARRIAGE_RETURN: u8 = 0x0D; // \r
 
 // ─── Param ───────────────────────────────────────────────────────────────────
@@ -101,15 +101,10 @@ impl<'a> Command<'a> {
 }
 
 impl PendingCommand {
-    pub fn text_hex_to_binary_in_place(
-        &self,
-        transport: &mut impl Transport,
-    ) -> Result<(), Error> {
+    pub fn text_hex_to_binary_in_place(&self, transport: &mut impl Transport) -> Result<(), Error> {
         let payload = transport.payload_mut();
 
-        let _new_consumed = text_hex_to_binary_in_place(
-            &mut payload[..self.consumed],
-        )?;
+        let _new_consumed = text_hex_to_binary_in_place(&mut payload[..self.consumed])?;
 
         // Do not update self.consumed.
         // The converted binary frame is shorter, but complete() must consume
@@ -176,7 +171,10 @@ pub fn poll<T: Transport>(
                 command_name_len: cmd.name.len(),
             }))
         }
-        Err(Error::MissingTerminator) | Err(Error::TooShort) | Err(Error::Truncated) | Err(Error::NoSeparator) => {
+        Err(Error::MissingTerminator)
+        | Err(Error::TooShort)
+        | Err(Error::Truncated)
+        | Err(Error::NoSeparator) => {
             // Wait for more data
             Ok(None)
         }
@@ -208,7 +206,7 @@ pub enum Error {
     MissingTerminator,
     // Param index out of range.
     MissingParameter,
-    // Unknown command 
+    // Unknown command
     UnknownCommand,
     Payload(payload::Error),
 }
@@ -258,7 +256,6 @@ pub fn parse(input: &[u8]) -> Result<(Command<'_>, usize), Error> {
         }
     }
 
-
     // Find the first SP or US to locate end of command name
     let sep_pos = input
         .iter()
@@ -282,10 +279,7 @@ pub fn parse(input: &[u8]) -> Result<(Command<'_>, usize), Error> {
 
 // ─── Binary parser ────────────────────────────────────────────────────────────
 
-fn parse_binary<'a>(
-    name: &'a [u8],
-    rest: &'a [u8],
-) -> Result<(Command<'a>, usize), Error> {
+fn parse_binary<'a>(name: &'a [u8], rest: &'a [u8]) -> Result<(Command<'a>, usize), Error> {
     // First byte: param count
     if rest.is_empty() {
         return Err(Error::TooShort);
@@ -320,15 +314,19 @@ fn parse_binary<'a>(
     // Total consumed = name.len() + 1 (sep) + 1 (param_count) + cursor
     let consumed = name.len() + 1 + cursor;
 
-    Ok((Command { name, params, param_count }, consumed))
+    Ok((
+        Command {
+            name,
+            params,
+            param_count,
+        },
+        consumed,
+    ))
 }
 
 // ─── Text parser ──────────────────────────────────────────────────────────────
 
-fn parse_text<'a>(
-    name: &'a [u8],
-    rest: &'a [u8],
-) -> Result<(Command<'a>, usize), Error> {
+fn parse_text<'a>(name: &'a [u8], rest: &'a [u8]) -> Result<(Command<'a>, usize), Error> {
     // Find newline terminator
     let line_len = rest
         .iter()
@@ -351,7 +349,7 @@ fn parse_text<'a>(
             // Validate hex — we keep a slice of the hex bytes (not decoded)
             // Caller decodes if needed; this keeps us zero-alloc.
             //if !is_valid_hex(token) {
-                //return Err(Error::InvalidHex);
+            //return Err(Error::InvalidHex);
             //}
             params[param_count] = Param::Present(token); // raw hex slice
         }
@@ -360,7 +358,14 @@ fn parse_text<'a>(
 
     let consumed = name.len() + 1 + line_len + 1; // +1 sep, +1 \n
 
-    Ok((Command { name, params, param_count }, consumed))
+    Ok((
+        Command {
+            name,
+            params,
+            param_count,
+        },
+        consumed,
+    ))
 }
 
 pub fn text_hex_to_binary_in_place(input: &mut [u8]) -> Result<usize, Error> {
@@ -426,7 +431,11 @@ pub fn text_hex_to_binary_in_place(input: &mut [u8]) -> Result<usize, Error> {
 
     for p in 0..param_count {
         // trace text
-        trace!("Processing param {} text: {:?}", p, core::str::from_utf8(&frame[read..params_end]).unwrap_or("<invalid utf-8>"));
+        trace!(
+            "Processing param {} text: {:?}",
+            p,
+            core::str::from_utf8(&frame[read..params_end]).unwrap_or("<invalid utf-8>")
+        );
         let token_start = read;
 
         while read < params_end && frame[read] != SEP_TEXT {
@@ -442,12 +451,18 @@ pub fn text_hex_to_binary_in_place(input: &mut [u8]) -> Result<usize, Error> {
             write += 2;
         } else {
             if token_end - token_start < 2 {
-                trace!("Token too short to be valid hex: {:?}", &frame[token_start..token_end]);
+                trace!(
+                    "Token too short to be valid hex: {:?}",
+                    &frame[token_start..token_end]
+                );
                 return Err(Error::InvalidHex);
             }
 
             if frame[token_start] != b'0' || frame[token_start + 1] != b'x' {
-                trace!("Token does not start with 0x: {:?}", &frame[token_start..token_end]);
+                trace!(
+                    "Token does not start with 0x: {:?}",
+                    &frame[token_start..token_end]
+                );
                 return Err(Error::InvalidHex);
             }
 
@@ -455,7 +470,10 @@ pub fn text_hex_to_binary_in_place(input: &mut [u8]) -> Result<usize, Error> {
             let hex_len = token_end - hex_start;
 
             if hex_len == 0 || hex_len % 2 != 0 {
-                trace!("Hex part must have even length: {:?}", &frame[hex_start..token_end]);
+                trace!(
+                    "Hex part must have even length: {:?}",
+                    &frame[hex_start..token_end]
+                );
                 return Err(Error::InvalidHex);
             }
 
@@ -469,7 +487,6 @@ pub fn text_hex_to_binary_in_place(input: &mut [u8]) -> Result<usize, Error> {
             write += 2;
 
             for i in 0..decoded_len {
-                trace!("Decoding byte {} of param {}: hex {:?}{:?}, hex_start: {}", i, p, frame[hex_start + i * 2], frame[hex_start + i * 2 + 1], hex_start);
                 let hi = hex_byte(frame[hex_start + i * 2])?;
                 let lo = hex_byte(frame[hex_start + i * 2 + 1])?;
                 frame[write + i] = (hi << 4) | lo;
@@ -477,6 +494,7 @@ pub fn text_hex_to_binary_in_place(input: &mut [u8]) -> Result<usize, Error> {
 
             frame[decoded_len_write..decoded_len_write + 2].copy_from_slice(&(decoded_len as u16).to_be_bytes());
 
+                
             write += decoded_len;
         }
 
@@ -496,9 +514,7 @@ pub fn text_hex_to_binary_in_place(input: &mut [u8]) -> Result<usize, Error> {
 
 fn is_valid_hex(bytes: &[u8]) -> bool {
     !bytes.is_empty()
-        && bytes.len() % 2 == 0
-        && bytes.iter().all(|b| b.is_ascii_hexdigit())
-}
+        && bytes.len( && bytes.iter().all(|b|
 
 /// Decode a hex slice into `out`. Returns number of bytes written.
 /// `out` must be at least `hex.len() / 2` bytes long.
@@ -555,7 +571,13 @@ pub fn encode_binary<'a>(
 
     // command name
     let needed = cmd.len() + 1 + 1 + params.iter().map(|p| 2 + p.map_or(0, |d| d.len())).sum::<usize>();
-    if out.len() < needed {
+    if out.len() < needed 
+        + 1
+        + 1
+        + params
+            .iter()
+            
+            
         return Err(Error::Truncated);
     }
 
@@ -601,11 +623,7 @@ mod tests {
 
         let mut buf = [0u8; 128];
         let written = encode_binary(
-            b"zcash.sign",
-            &[Some(pczt), Some(meta)],
-            &mut buf,
-        ).unwrap();
-
+            b"zcash.sign",&[Some(pczt),  &mut buf, &mut buf
         let (cmd, consumed) = parse(&buf[..written]).unwrap();
 
         assert_eq!(consumed, written);
@@ -621,11 +639,7 @@ mod tests {
 
         let mut buf = [0u8; 128];
         let written = encode_binary(
-            b"zcash.sign",
-            &[Some(pczt), None],
-            &mut buf,
-        ).unwrap();
-
+            b"zcash.sign",&[Some(pczt),  &mut buf, &mut buf
         let (cmd, _) = parse(&buf[..written]).unwrap();
         assert_eq!(cmd.param_count(), 2);
         assert_eq!(cmd.data(0), Some(pczt.as_ref()));
@@ -646,7 +660,6 @@ mod tests {
     #[test]
     fn test_text_no_newline() {
 
-        let input = b"zcash.sign deadbeef";
         //assert_eq!(parse(input), Err(Error::MissingTerminator));
         assert!(matches!(parse(input), Err(Error::MissingTerminator)));
     }
@@ -722,8 +735,12 @@ mod tests {
 
         impl Transport for TestTransport {
             fn init(&mut self) -> bool { true }
-            fn send(&mut self, _data: &[u8]) -> bool { true }
-            fn poll_rx(&mut self) -> Result<(), payload::Error> {
+            fn send(&mut self, _data: &[
+                true
+           -> bool { true }
+            fn poll_rx(&mut self) -> Result<(), payloa
+                true
+           ror> {
                 Ok(())
             }
 
@@ -752,15 +769,11 @@ mod tests {
         let mut transport = TestTransport::new(b"ping 0x0f 0xf0\n");
 
         let pending = poll(&mut transport)
-            .unwrap()
-            .expect("pending command");
-
+            .unwrap().unwrap()
         assert_eq!(pending.command_name_str(), Some("ping"));
 
         pending
-            .text_hex_to_binary_in_place(&mut transport)
-            .unwrap();
-
+            .te.unwrap();
         let cmd = pending.command(&transport).unwrap();
 
         assert_eq!(cmd.name, b"ping");
@@ -842,9 +855,7 @@ mod tests {
         assert_eq!(pending.consumed, first_frame_len);
 
         pending
-            .text_hex_to_binary_in_place(&mut transport)
-            .unwrap();
-
+            .te.unwrap();
         // consumed must remain the original text-frame length.
         assert_eq!(pending.consumed, first_frame_len);
 
@@ -881,4 +892,3 @@ mod tests {
         assert_eq!(cmd2.data(0), Some(b"with_txt".as_ref()));
     }
 
-}
