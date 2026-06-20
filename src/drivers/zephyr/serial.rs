@@ -75,9 +75,7 @@ impl UsbSerialDriverZephyr {
             return false;
         }
 
-        unsafe {
-            payload[current_len] = b;
-        }
+        payload[current_len] = b;
         self.current_len.store(current_len + 1, Ordering::Release);
         true
     }
