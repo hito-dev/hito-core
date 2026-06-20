@@ -80,40 +80,6 @@ impl UsbSerialDriverZephyr {
         true
     }
 
-    fn poll_rx_once(&mut self, payload: &mut [u8]) -> usize {
-        let d = self.get_dev();
-        if d.is_null() {
-            return 0;
-        }
-
-        let mut len = 0;
-
-        // Trying to read as much data as possible
-        loop {
-            let mut c: u8 = 0;
-            let rc = unsafe { uart_poll_in(d, &mut c as *mut u8) };
-            if rc < 0 {
-                //debug!("uart_poll_in rc={}", rc);
-                break; // no more data
-            }
-
-            // unsafe {
-            //     uart_poll_out(d, c); // echo back for testing
-            // }
-            
-            debug!("Received byte: {}", c);
-
-            if len >= payload.len() {
-                break;
-            }
-
-            payload[len] = c;
-            len += 1;
-        }
-
-        len
-    }
-
 
     fn refresh_connected_flag(&self) {
         let d = self.get_dev();
@@ -198,7 +164,7 @@ impl TransportDriver for UsbSerialDriverZephyr {
         }
 
         payload.clear(); // clear 
-        self.poll_rx_once(&mut []); // prime
+        //self.poll_rx_once(&mut []); // prime
 
         ok!("serial initialized");
         true
