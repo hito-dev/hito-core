@@ -145,11 +145,11 @@ impl TransportDriver for UsbSerialDriverZephyr {
             self.refresh_connected_flag();
             if self.connected.load(Ordering::Acquire) {
                 unsafe {
-                    let rc = uart_line_ctrl_set(d, UART_LINE_CTRL_DCD, 1);
+                    let _rc = uart_line_ctrl_set(d, UART_LINE_CTRL_DCD, 1);
                     // if rc != 0 {
                     //     error!("Failed to set DCD, rc={}", rc);
                     // }
-                    let rc = uart_line_ctrl_set(d, UART_LINE_CTRL_DSR, 1);
+                    let _rc = uart_line_ctrl_set(d, UART_LINE_CTRL_DSR, 1);
                     // if rc == 0 {
                     //     error!("Failed to set DSR, rc={}", rc);
                     // }
