@@ -166,24 +166,49 @@ impl TransportDriver for UsbSerialDriverZephyr {
         true
     }
 
+    /// Poll for incoming data
     fn poll_rx<B>(&mut self, payload: &mut PayloadBuffer<B>) -> Result<(), Error>
     where
         B: AsRef<[u8]> + AsMut<[u8]>,
     {
-        if !self.ready.load(Ordering::Acquire) {
+        let dev = self.get_dev();
+
+        if dev.is_null() {
             return Ok(());
         }
 
-        self.refresh_connected_flag();
-
         let mut tmp = [0u8; 256];
-        let n = self.poll_rx_once(&mut tmp);
-        // trace!("Polled UART, got {} bytes", n);
 
-        if n > 0 {
-            debug!("USB RX: {}", hexdump!(&tmp[..n]));
-            payload.push(&tmp[..n])?;
-        } 
+        loop {
+            let mut len = 0;
+
+            while len < tmp.len() {
+                let mut byte = 0u8;
+
+                let rc = unsafe {
+                    uart_poll_in(dev, &mut byte as *mut u8)
+                };
+
+                if rc < 0 {
+                    break;
+                }
+
+                tmp[len] = byte;
+                len += 1;
+            }
+
+            if len == 0 {
+                break;
+            }
+
+            payload.push(&tmp[..len])?;
+
+            trace!("Received {} bytes from USB CDC ACM", len);
+
+            if len < tmp.len() {
+                break;
+            }
+        }
 
         Ok(())
     }
