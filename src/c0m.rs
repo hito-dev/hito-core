@@ -469,7 +469,7 @@ pub fn text_hex_to_binary_in_place(input: &mut [u8]) -> Result<usize, Error> {
             write += 2;
 
             for i in 0..decoded_len {
-                trace!("Decoding byte {} of param {}: hex {:?}{:?}, hex_start: {}", i, p, frame[hex_start + i * 2], frame[hex_start + i * 2 + 1], hex_start);
+                //trace!("Decoding byte {} of param {}: hex {:?}{:?}, hex_start: {}", i, p, frame[hex_start + i * 2], frame[hex_start + i * 2 + 1], hex_start);
                 let hi = hex_byte(frame[hex_start + i * 2])?;
                 let lo = hex_byte(frame[hex_start + i * 2 + 1])?;
                 frame[write + i] = (hi << 4) | lo;
