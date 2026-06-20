@@ -1,11 +1,6 @@
 // serial.rs
 #![allow(dead_code)]
-
-use core::cell::UnsafeCell;
-use core::ptr;
 use core::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
-
-use alloc::string::String;
 
 use crate::drivers::Time;
 // use crate::drivers::serial::SerialDriver;
@@ -47,147 +42,9 @@ const UART_LINE_CTRL_DTR: u32 = 1;
 const UART_LINE_CTRL_DCD: u32 = 3;
 const UART_LINE_CTRL_DSR: u32 = 4;
 
-// ----- Simple lock-free-ish ring buffer (single producer/consumer in one thread) -----
-// struct Ring {
-//     len: AtomicUsize,
-// }
-// unsafe impl Sync for Ring {}
-
-// // use crate::drivers::payload_buffer;
-
-// impl Ring {
-//     const fn new() -> Self {
-//         Self {
-//             len: AtomicUsize::new(0),
-//         }
-//     }
-
-//     #[inline]
-//     fn cap(&self) -> usize {
-//         crate::drivers::payload_storage::payload_buffer::capacity()
-//     }
-
-//     #[inline]
-//     fn ptr(&self) -> *mut u8 {
-//         crate::drivers::payload_storage::payload_buffer::as_mut_ptr()
-//     }
-
-//     #[inline]
-//     fn len(&self) -> usize {
-//         self.len.load(Ordering::Acquire)
-//     }
-
-//     #[inline]
-//     fn clear(&self) {
-//         self.len.store(0, Ordering::Release);
-//     }
-
-//     #[inline]
-//     fn push(&self, b: u8) -> bool {
-//         let current_len = self.len.load(Ordering::Relaxed);
-//         if current_len >= self.cap() {
-//             return false;
-//         }
-
-//         unsafe {
-//             self.ptr().add(current_len).write(b);
-//         }
-//         self.len.store(current_len + 1, Ordering::Release);
-//         true
-//     }
-
-//     #[inline]
-//     fn read_all(&self, out: &mut [u8]) -> usize {
-//         let current_len = self.len.load(Ordering::Acquire);
-//         let n = core::cmp::min(current_len, out.len());
-
-//         unsafe {
-//             core::ptr::copy_nonoverlapping(
-//                 self.ptr() as *const u8,
-//                 out.as_mut_ptr(),
-//                 n
-//             );
-//         }
-//         n
-//     }
-
-//     #[inline]
-//     fn has_line(&self) -> bool {
-//         let current_len = self.len.load(Ordering::Acquire);
-//         if current_len == 0 {
-//             return false;
-//         }
-//         unsafe {
-//             self.ptr().add(current_len - 1).read() == b'\n'
-//         }
-//     }
-
-//     #[inline]
-//     fn get_line(&self) -> Option<String> {
-//         let current_len = self.len.load(Ordering::Acquire);
-//         if current_len == 0 {
-//             return None;
-//         }
-
-//         unsafe {
-//             let bytes = core::slice::from_raw_parts(self.ptr() as *const u8, current_len);
-//             // Remove trailing '\n' if present
-//             let bytes = if bytes.last() == Some(&b'\n') {
-//                 &bytes[..bytes.len() - 1]
-//             } else {
-//                 bytes
-//             };
-
-//             Some(alloc::string::String::from_utf8_lossy(bytes).into_owned())
-//         }
-//     }
-
-// }
-
 // ----- SerialZephyr implementation -----
 
-// static RX: Ring = Ring::new();
-
-// static READY: AtomicBool = AtomicBool::new(false);
-// static CONNECTED: AtomicBool = AtomicBool::new(false);
-
-// // Store pointer as usize to avoid Option<&'static device> tricks in no_std.
-// static DEV_PTR: AtomicUsize = AtomicUsize::new(0);
-
-// fn dev() -> *const device {
-//     DEV_PTR.load(Ordering::Acquire) as *const device
-// }
-
-// fn set_dev(p: *const device) {
-//     DEV_PTR.store(p as usize, Ordering::Release);
-// }
-
-// fn refresh_connected_flag() {
-//     let d = dev();
-//     if d.is_null() {
-//         CONNECTED.store(false, Ordering::Release);
-//         return;
-//     }
-
-//     let mut dtr: u32 = 0;
-//     let rc = unsafe { uart_line_ctrl_get(d, UART_LINE_CTRL_DTR, &mut dtr as *mut u32) };
-//     if rc == 0 && dtr != 0 {
-//         CONNECTED.store(true, Ordering::Release);
-//     } else {
-//         CONNECTED.store(false, Ordering::Release);
-//     }
-// }
-
 pub struct SerialZephyr;
-
-// fn poll_if_ready() -> bool {
-//     if !READY.load(Ordering::Acquire) {
-//         return false;
-//     }
-//     refresh_connected_flag();
-//     poll_rx_once();
-//     true
-// }
 
 pub type UsbSerialTransport<B> = TransportDevice<UsbSerialDriverZephyr, B>;
 
@@ -370,39 +227,6 @@ impl TransportDriver for UsbSerialDriverZephyr {
 
         Ok(())
     }
-
-    // fn has_data(&self) -> bool {
-    //     self.poll_if_ready() && self.rx.len() > 0
-    // }
-
-    // fn get_data_len() -> usize {
-    //     if !poll_if_ready() {
-    //         return 0;
-    //     }
-    //     RX.len()
-    // }
-
-    // fn get_data(out: &mut [u8]) -> usize {
-    //     if !poll_if_ready() || out.is_empty() {
-    //         return 0;
-    //     }
-    //     RX.read_all(out)
-    // }
-
-    // fn has_line() -> bool {
-    //     poll_if_ready() && RX.has_line()
-    // }
-
-    // fn get_line() -> Option<String> {
-    //     if !poll_if_ready() || !RX.has_line() {
-    //         return None;
-    //     }
-    //     RX.get_line()
-    // }
-
-    // fn clear_data() {
-    //     RX.clear();
-    // }
 
     /// Send reply to the current connected client.
     /// Appends '\n'.
