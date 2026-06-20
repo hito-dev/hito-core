@@ -68,7 +68,6 @@ impl UsbSerialDriverZephyr {
 
     fn push_byte(&self, b: u8, payload: &mut [u8]) -> bool
     {
-        //debug!("Received byte: {}", b);
         let current_len = self.current_len.load(Ordering::Relaxed);
         if current_len >= payload.len() {
             debug!("Payload buffer full, dropping byte");
@@ -91,8 +90,6 @@ impl UsbSerialDriverZephyr {
 
         let mut dtr: u32 = 0;
         let rc = unsafe { uart_line_ctrl_get(d, UART_LINE_CTRL_DTR, &mut dtr as *mut u32) };
-
-        //debug!("DTR get rc={}, dtr={}", rc, dtr);
 
         if rc == 0 && dtr != 0 {
             self.connected.store(true, Ordering::Release);
@@ -136,7 +133,6 @@ impl TransportDriver for UsbSerialDriverZephyr {
             error!("device_get_binding(\"CDC_ACM_0\") returned NULL");
             self.ready.store(false, Ordering::Release);
             self.dev_ptr.store(0, Ordering::Release);
-            // set_dev(ptr::null());
             return false;
         }
 
@@ -212,10 +208,10 @@ impl TransportDriver for UsbSerialDriverZephyr {
         }
 
         for &b in data {
-            trace!("Sending byte: {}", b);
+            //trace!("Sending byte: {}", b);
             unsafe { uart_poll_out(d, b) };
         }
-        trace!("Sending byte: {}", b'\n');
+        //trace!("Sending byte: {}", b'\n');
         unsafe { uart_poll_out(d, b'\n') };
         true
     }
