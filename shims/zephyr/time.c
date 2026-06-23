@@ -12,3 +12,9 @@ void hito_platform_time_sleep_ms(uint32_t ms)
 {
     k_msleep(ms);
 }
+
+// Rust shim to sleep for a number of milliseconds - orig k_msleep is inline
+void hito_platform_time_sleep_us(uint32_t us)
+{
+    k_usleep(us);
+}
