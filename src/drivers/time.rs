@@ -4,6 +4,7 @@ driver! {
     pub trait TimeDriver => Time {
         fn now_ms() -> u64;
         fn sleep_ms(ms: u32);
+        fn sleep_us(ms: u32);
     }
 }
 

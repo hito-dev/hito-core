@@ -20,6 +20,16 @@ impl TimeDriver for TimeSimulator {
             //std::process::exit(0);  
         //}
     }
+
+    fn sleep_us(us: u32) {
+        simulator_window_update();
+        std::thread::sleep(std::time::Duration::from_micros(us as u64));
+
+        // check for keyboard input while sleeping and exit if 'q' is pressed
+        //if simulator_window_is_q_pressed() {
+            //std::process::exit(0);  
+        //}
+    }
 }
 
 fn boot() -> &'static Instant {
