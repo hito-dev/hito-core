@@ -203,8 +203,6 @@ impl TransportDriver for UsbSerialDriverZephyr {
 
             payload.push(&tmp[..len])?;
 
-            trace!("Received {} bytes from USB CDC ACM", len);
-
             if len < tmp.len() {
                 break;
             }
