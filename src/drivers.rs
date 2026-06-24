@@ -19,8 +19,8 @@ pub mod payload_storage;
 pub use time::Time;
 #[allow(unused_imports)]
 pub use serial::UsbSerial;
-// #[allow(unused_imports)]
-// pub use bluetooth::Bluetooth;
+#[allow(unused_imports)]
+pub use bluetooth::Bluetooth;
 #[allow(unused_imports)]
 pub use touch::Touch;
 #[allow(unused_imports)]

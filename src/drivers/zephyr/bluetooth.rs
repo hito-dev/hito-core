@@ -5,6 +5,23 @@
 // use crate::drivers::bluetooth::BluetoothDriver;
 // use crate::drivers::time::Time;
 
+use crate::drivers::{
+    payload::{PayloadBuffer, Error},
+    transport::{TransportDevice, TransportDriver}
+};
+
+pub type BluetoothZephyrTransport<B> = TransportDevice<BluetoothZephyrDriver, B>;
+
+pub struct BluetoothZephyrDriver {
+}
+
+impl BluetoothZephyrDriver {
+    pub fn new() -> Self {
+        Self {
+        }
+    }
+}
+
 // pub struct BluetoothZephyr;
 
 // extern "C" {
