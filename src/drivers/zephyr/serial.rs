@@ -212,7 +212,6 @@ impl TransportDriver for UsbSerialDriverZephyr {
     }
 
     /// Send reply to the current connected client.
-    /// Appends '\n'.
     fn send(&mut self, data: &[u8]) -> bool {
         if !self.ready.load(Ordering::Acquire) {
             error!("Serial not ready, cannot send");
@@ -234,8 +233,6 @@ impl TransportDriver for UsbSerialDriverZephyr {
             //trace!("Sending byte: {}", b);
             unsafe { uart_poll_out(d, b) };
         }
-        //trace!("Sending byte: {}", b'\n');
-        unsafe { uart_poll_out(d, b'\n') };
         true
     }
 }
