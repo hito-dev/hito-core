@@ -104,12 +104,17 @@ impl TransportDriver for UnixSocketDriver {
     }
 }
 
+fn unix_socket_path() -> std::string::String {
+    std::env::var("HITO_UNIX_SOCKET")
+        .unwrap_or_else(|_| "/tmp/hito.sock".into())
+}
+
 // UnixSocketTransport singleton
 impl UnixSocketTransport<&'static mut [u8]> {
     pub fn take() -> Option<Self> {
         Some(
             Self::new(
-                UnixSocketDriver::new("/tmp/hito.sock"),  // default path
+                UnixSocketDriver::new(unix_socket_path()),  // default path
                 crate::drivers::payload_storage::take()?, // default payload buffer
             )
         )
