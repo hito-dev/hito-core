@@ -281,6 +281,11 @@ uint16_t hito_ble_payload_len()
 	return m_hito_ble_payload_len;
 }
 
+bool hito_ble_has_packet() 
+{
+	return m_hito_ble_packet_len != 0 ? true : false;
+}
+
 //-----------------------------------------------------------------------------
 // check if bluetooth has data received
 bool hito_ble_has_data() 
