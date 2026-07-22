@@ -75,7 +75,7 @@ set(LIBCRYPT0_SOURCES
   ${LIBCRYPT0_DIR}/lib/SHA3IUF/sha3.c
   ${LIBCRYPT0_DIR}/lib/secp256k1/src/secp256k1.c
   ${LIBCRYPT0_DIR}/lib/base58/base58.c
-  ${LIBCRYPT0_DIR}/lib/secp256k1/src/precomputed_ecmult.c
+  # ${LIBCRYPT0_DIR}/lib/secp256k1/src/precomputed_ecmult.c
   ${LIBCRYPT0_DIR}/lib/secp256k1/src/precomputed_ecmult_gen.c
   ${LIBCRYPT0_DIR}/src/src_c/crypt0_secp256k1.c
   ${LIBCRYPT0_DIR}/src/src_c/crypt0_sha.c
