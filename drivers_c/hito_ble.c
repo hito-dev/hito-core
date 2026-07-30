@@ -568,7 +568,7 @@ bool hito_ble_init(uint8_t * payload_buffer, uint32_t payload_buffer_size)
 
 	/* Initialize the Bluetooth Subsystem */
 	//int err = bt_enable(hito_ble_bt_ready);
-	int err = bt_enable(NULL);
+	int err = bt_enable(hito_ble_bt_ready);
 	if (err) {
 		LOG_ERR("Bluetooth init failed (err %d)", err);
 		return false;
