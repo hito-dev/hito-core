@@ -218,22 +218,22 @@ impl From<payload::Error> for Error {
     }
 }
 
-impl core::fmt::Display for Error {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        match self {
-            Error::TooShort => write!(f, "Input Buffer Is Empty Or Too Short"),
-            Error::CommandTooLong => write!(f, "Command Name Exceeds {}", MAX_CMD_LEN),
-            Error::NoSeparator => write!(f, "No Separator Found (neither SP nor US)"),
-            Error::TooManyParams => write!(f, "Param Count In Binary Frame Exceeds {}", MAX_PARAMS),
-            Error::Truncated => write!(f, "Binary Frame Is Truncated (Not Enough Bytes For Declared Length)"),
-            Error::InvalidHex => write!(f, "Text Frame Hex Decoding Failed"),
-            Error::MissingTerminator => write!(f, "Text Frame Missing Newline Terminator"),
-            Error::MissingParameter => write!(f, "Param Index Out Of Range"),
-            Error::UnknownCommand => write!(f, "Unknown Command"),
-            Error::Payload(e) => write!(f, "Payload Error: {:?}", e),
-        }
-    }
-}
+// impl core::fmt::Display for Error {
+//     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+//         match self {
+//             Error::TooShort => write!(f, "Input Buffer Is Empty Or Too Short"),
+//             Error::CommandTooLong => write!(f, "Command Name Exceeds {}", MAX_CMD_LEN),
+//             Error::NoSeparator => write!(f, "No Separator Found (neither SP nor US)"),
+//             Error::TooManyParams => write!(f, "Param Count In Binary Frame Exceeds {}", MAX_PARAMS),
+//             Error::Truncated => write!(f, "Binary Frame Is Truncated (Not Enough Bytes For Declared Length)"),
+//             Error::InvalidHex => write!(f, "Text Frame Hex Decoding Failed"),
+//             Error::MissingTerminator => write!(f, "Text Frame Missing Newline Terminator"),
+//             Error::MissingParameter => write!(f, "Param Index Out Of Range"),
+//             Error::UnknownCommand => write!(f, "Unknown Command"),
+//             Error::Payload(e) => write!(f, "Payload Error: {:?}", e),
+//         }
+//     }
+// }
 
 // ─── Parser ──────────────────────────────────────────────────────────────────
 
