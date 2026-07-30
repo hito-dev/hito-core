@@ -573,7 +573,7 @@ bool hito_ble_init(uint8_t * payload_buffer, uint32_t payload_buffer_size)
 		LOG_ERR("Bluetooth init failed (err %d)", err);
 		return false;
 	}
-	LOG_INF("Bluetooth enabed...");
+	LOG_INF("Bluetooth enabled...");
 
 	return true;
 }
