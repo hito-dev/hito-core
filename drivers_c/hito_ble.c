@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <errno.h>
 #include <sys/printk.h>
+#include <sys/atomic.h>
 #include <sys/byteorder.h>
 #include <zephyr.h>
 #include <drivers/gpio.h>
@@ -371,6 +372,8 @@ bool hito_ble_send(const void * data, uint32_t len)
 
 bool m_ble_is_inited = false;
 bool m_ble_is_started = false;
+static atomic_t m_ble_start_requested;
+static atomic_t m_ble_is_initializing;
 
 bool hito_ble_is_active() {
   return m_ble_is_started;
@@ -393,9 +396,16 @@ static void hito_ble_bt_ready(int err)
 	if (err) {
 		LOG_ERR("Bluetooth init failed (err %d)", err);
 		m_hito_ble_has_error = true;
+    atomic_clear(&m_ble_is_initializing);
 		return;
 	}
 	LOG_DBG("Bluetooth initialized");
+  m_ble_is_inited = true;
+  atomic_clear(&m_ble_is_initializing);
+  // A stop request may arrive while bt_enable() is still completing.
+  if (!atomic_get(&m_ble_start_requested)) {
+    return;
+  }
 
 	/* Start advertising */
 	err = bt_le_adv_start(BT_LE_ADV_CONN, ad, ARRAY_SIZE(ad), sd, ARRAY_SIZE(sd));
@@ -406,8 +416,12 @@ static void hito_ble_bt_ready(int err)
 	}
 
 	LOG_DBG("Configuration mode: waiting connections...");
-  m_ble_is_inited = true;
   m_ble_is_started = true;
+  if (!atomic_get(&m_ble_start_requested)) {
+    bt_le_adv_stop();
+    m_ble_is_started = false;
+    return;
+  }
 
 	m_hito_ble_packet_len = 0;
 	m_hito_ble_payload_len = 0;
@@ -429,6 +443,10 @@ static void hito_ble_connected(struct bt_conn *connected, uint8_t err)
 		LOG_ERR("Connection failed (err %u)", err);
 		m_hito_ble_has_error = true;
 	} else {
+		if (!atomic_get(&m_ble_start_requested)) {
+			bt_conn_disconnect(connected, BT_HCI_ERR_REMOTE_USER_TERM_CONN);
+			return;
+		}
 		LOG_DBG("Connected");
 		hito_ble_payload_clear();
 		hito_ble_packet_clear();
@@ -548,8 +566,12 @@ bool hito_ble_init(uint8_t * payload_buffer, uint32_t payload_buffer_size)
 
 	m_hito_ble_has_error = false;
 
+  atomic_set(&m_ble_start_requested, 1);
   if (m_ble_is_inited) {
     hito_ble_start();
+    return true;
+  }
+  if (atomic_get(&m_ble_is_initializing)) {
     return true;
   }
 
@@ -568,8 +590,10 @@ bool hito_ble_init(uint8_t * payload_buffer, uint32_t payload_buffer_size)
 
 	/* Initialize the Bluetooth Subsystem */
 	//int err = bt_enable(hito_ble_bt_ready);
+  atomic_set(&m_ble_is_initializing, 1);
 	int err = bt_enable(hito_ble_bt_ready);
 	if (err) {
+    atomic_clear(&m_ble_is_initializing);
 		LOG_ERR("Bluetooth init failed (err %d)", err);
 		return false;
 	}
@@ -580,7 +604,10 @@ bool hito_ble_init(uint8_t * payload_buffer, uint32_t payload_buffer_size)
 
 void hito_ble_start() 
 {
-	hito_ble_bt_ready(0);
+  atomic_set(&m_ble_start_requested, 1);
+  if (m_ble_is_inited) {
+	  hito_ble_bt_ready(0);
+  }
 }
 
 void hito_ble_disconnect() 
@@ -597,6 +624,9 @@ void hito_ble_disconnect()
 
 void hito_ble_stop() 
 {
+  atomic_clear(&m_ble_start_requested);
+  hito_ble_payload_clear();
+  hito_ble_packet_clear();
   if (!m_ble_is_started) {
     LOG_DBG("Bluetooth has already stopped");
     return;
