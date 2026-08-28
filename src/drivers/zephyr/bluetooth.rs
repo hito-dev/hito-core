@@ -54,6 +54,14 @@ impl BluetoothZephyrDriver {
 }
 
 impl TransportDriver for BluetoothZephyrDriver {
+    fn stop(&mut self) -> bool {
+        unsafe {
+            hito_ble_stop();
+            hito_ble_packet_clear();
+            !hito_ble_is_active()
+        }
+    }
+
     fn init<B>(&mut self, payload: &mut PayloadBuffer<B>) -> bool
     where 
         B: AsRef<[u8]> + AsMut<[u8]>,

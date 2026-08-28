@@ -26,6 +26,13 @@ impl UnixSocketDriver {
 }
 
 impl TransportDriver for UnixSocketDriver {
+    fn stop(&mut self) -> bool {
+        self.stream = None;
+        self.listener = None;
+        let _ = fs::remove_file(&self.path);
+        true
+    }
+
     fn init<B>(&mut self, _payload: &mut PayloadBuffer<B>) -> bool
     where 
         B: AsRef<[u8]> + AsMut<[u8]>,
@@ -168,6 +175,32 @@ mod tests {
         }
 
         panic!("transport did not receive data");
+    }
+
+    #[test]
+    fn unix_socket_stop_disconnects_client_and_can_restart() {
+        let path = test_socket_path("stop");
+        let mut transport = UnixSocketTransport::new(UnixSocketDriver::new(&path), [0u8; 128]);
+        assert!(transport.init());
+        let mut client = UnixStream::connect(&path).unwrap();
+        client
+            .set_read_timeout(Some(Duration::from_secs(1)))
+            .unwrap();
+        client.write_all(b"old command").unwrap();
+        poll_until_data(&mut transport);
+
+        assert!(transport.stop());
+        assert!(!transport.has_data());
+        assert!(!path.exists());
+        assert!(UnixStream::connect(&path).is_err());
+        assert_eq!(client.read(&mut [0u8; 1]).unwrap(), 0);
+
+        assert!(transport.init());
+        let mut client = UnixStream::connect(&path).unwrap();
+        client.write_all(b"new command").unwrap();
+        poll_until_data(&mut transport);
+        assert_eq!(transport.payload(), b"new command");
+        assert!(transport.stop());
     }
 
     #[test]
