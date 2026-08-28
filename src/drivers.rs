@@ -2,7 +2,7 @@
 pub mod log_backend;
 
 macro_rules! mods { ($($name:ident),*) => { $(mod $name;)* }; }
-mods!(time, serial, bluetooth, touch, display);
+mods!(time, serial, bluetooth, touch, display, reboot);
 
 #[cfg(feature = "simulator")]
 mod simulator;
@@ -17,6 +17,8 @@ pub mod payload_storage;
 // re-export all drivers at drivers root
 #[allow(unused_imports)]
 pub use time::Time;
+#[allow(unused_imports)]
+pub use reboot::Reboot;
 #[allow(unused_imports)]
 pub use serial::UsbSerial;
 #[allow(unused_imports)]
