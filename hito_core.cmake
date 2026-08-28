@@ -41,7 +41,7 @@ set(SHIMS_SOURCES
   ${SHIMS_SOURCE_DIR}/time.c
   ${SHIMS_SOURCE_DIR}/usb_uart.c
   ${SHIMS_SOURCE_DIR}/logging.c
-  ${SHIMS_SOURCE_DIR}/vault.c
+  # ${SHIMS_SOURCE_DIR}/vault.c
 )
 
 # legacy C hito drivers
