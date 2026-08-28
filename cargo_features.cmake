@@ -25,16 +25,29 @@ set(CARGO_OPTIONAL_FEATURES "gui" "audio" "bluetooth")
 
 message(STATUS "Analyzing Cargo.toml features...")
 
+# CMake's Zephyr toolchain setup may replace PATH before this file is included.
+# Honor Cargo's standard environment override so embedded builds remain
+# reproducible when cargo is installed through rustup outside the SDK.
+if(DEFINED ENV{CARGO} AND NOT "$ENV{CARGO}" STREQUAL "")
+  set(CARGO_COMMAND "$ENV{CARGO}")
+else()
+  find_program(CARGO_COMMAND cargo REQUIRED)
+endif()
+
 execute_process(
-  COMMAND cargo metadata --no-deps --format-version 1
+  COMMAND ${CARGO_COMMAND} metadata --no-deps --format-version 1
   WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}
   OUTPUT_VARIABLE CARGO_METADATA
+  ERROR_VARIABLE CARGO_METADATA_ERROR
   RESULT_VARIABLE CARGO_METADATA_RESULT
   OUTPUT_STRIP_TRAILING_WHITESPACE
+  ERROR_STRIP_TRAILING_WHITESPACE
 )
 
 if(NOT CARGO_METADATA_RESULT EQUAL 0)
-  message(FATAL_ERROR "cargo metadata failed. Is cargo installed and is there a Cargo.toml in ${CMAKE_CURRENT_LIST_DIR}?")
+  message(FATAL_ERROR
+    "cargo metadata failed (${CARGO_METADATA_RESULT}) in "
+    "${CMAKE_CURRENT_LIST_DIR}: ${CARGO_METADATA_ERROR}")
 endif()
 
 # Find the package by matching CMake project name to Cargo package name
