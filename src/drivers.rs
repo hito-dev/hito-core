@@ -23,6 +23,10 @@ pub use reboot::Reboot;
 pub use serial::UsbSerial;
 #[allow(unused_imports)]
 pub use bluetooth::Bluetooth;
+// #[allow(unused_imports)]
+// pub use nfc::NFC;
+// #[allow(unused_imports)]
+// pub use battery::Battery;
 #[allow(unused_imports)]
 pub use touch::Touch;
 #[allow(unused_imports)]
