@@ -12,7 +12,8 @@ impl crate::drivers::display::DisplayDriver for DisplayMinifb {
         true
     }
 
-    fn set_brightness(_brightness: u8) {
+    fn set_brightness(brightness: u8) {
+        info!("Set brightness: {}", brightness);
         // No-op for simulator
     }
 
