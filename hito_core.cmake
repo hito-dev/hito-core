@@ -48,6 +48,8 @@ set(SHIMS_SOURCES
 set(DRIVERS_C_SOURCE_DIR ${HITO_CORE_DIR}/drivers_c)
 set(DRIVERS_C_SOURCES
   ${DRIVERS_C_SOURCE_DIR}/hito_ble.c
+  #${DRIVERS_C_SOURCE_DIR}/hito_nfc.c
+  #${DRIVERS_C_SOURCE_DIR}/hito_battery.c
   ${DRIVERS_C_SOURCE_DIR}/ft6336_ctp.c
   ${DRIVERS_C_SOURCE_DIR}/ili9342_lcd.c
   ${DRIVERS_C_SOURCE_DIR}/hito_pin_config.c
