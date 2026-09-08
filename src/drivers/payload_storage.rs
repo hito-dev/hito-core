@@ -37,3 +37,7 @@ static PAYLOAD_STORAGE: PayloadStorage = PayloadStorage::new();
 pub fn take() -> Option<&'static mut [u8]> {
     PAYLOAD_STORAGE.take()
 }
+
+pub fn release() {
+    PAYLOAD_STORAGE.release();
+}

@@ -40,6 +40,7 @@ impl BluetoothZephyrDriver {
                 let ptr = unsafe { hito_ble_packet() } as *mut u8;
                 let slice = unsafe { core::slice::from_raw_parts(ptr, len) };
                 if slice == b"ok\n" || slice == b"ok\r\n" || slice == b"ok\0" {
+                    trace!("Received ack: \n{}", hexdump!(slice));
                     return true;
                 } else {
                     trace!("Received ack is not 'ok': \n{}", hexdump!(slice));
@@ -53,6 +54,14 @@ impl BluetoothZephyrDriver {
 }
 
 impl TransportDriver for BluetoothZephyrDriver {
+    fn stop(&mut self) -> bool {
+        unsafe {
+            hito_ble_stop();
+            hito_ble_packet_clear();
+            !hito_ble_is_active()
+        }
+    }
+
     fn init<B>(&mut self, payload: &mut PayloadBuffer<B>) -> bool
     where 
         B: AsRef<[u8]> + AsMut<[u8]>,
@@ -68,6 +77,9 @@ impl TransportDriver for BluetoothZephyrDriver {
         // bluetooth driver is polled in the background by C driver, so no polling needed
         if unsafe { hito_ble_has_payload() } {
             payload.set_len(unsafe { hito_ble_payload_len() as usize });
+            unsafe {
+                hito_ble_payload_clear();
+            }
             return Ok(());
         }
         Ok(())

@@ -2,7 +2,7 @@
 pub mod log_backend;
 
 macro_rules! mods { ($($name:ident),*) => { $(mod $name;)* }; }
-mods!(time, serial, bluetooth, touch, display);
+mods!(time, serial, bluetooth, touch, display, reboot);
 
 #[cfg(feature = "simulator")]
 mod simulator;
@@ -18,9 +18,15 @@ pub mod payload_storage;
 #[allow(unused_imports)]
 pub use time::Time;
 #[allow(unused_imports)]
+pub use reboot::Reboot;
+#[allow(unused_imports)]
 pub use serial::UsbSerial;
 #[allow(unused_imports)]
 pub use bluetooth::Bluetooth;
+// #[allow(unused_imports)]
+// pub use nfc::NFC;
+// #[allow(unused_imports)]
+// pub use battery::Battery;
 #[allow(unused_imports)]
 pub use touch::Touch;
 #[allow(unused_imports)]

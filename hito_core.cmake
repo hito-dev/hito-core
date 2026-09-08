@@ -12,8 +12,9 @@ endif()
 set(RUST_APP_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 set(RUST_WORKSPACE_DIR ${RUST_APP_DIR}/../..)
 set(RUST_TARGET_DIR ${RUST_WORKSPACE_DIR}/target/${RUST_TARGET}/${RUST_BUILD_TYPE})
+string(REPLACE "-" "_" RUST_CRATE_LIB_NAME "${PROJECT_NAME}")
 get_filename_component(RUST_LIB_PATH
-    ${RUST_TARGET_DIR}/lib${PROJECT_NAME}.a
+    ${RUST_TARGET_DIR}/lib${RUST_CRATE_LIB_NAME}.a
     ABSOLUTE
 )
 
@@ -40,12 +41,15 @@ set(SHIMS_SOURCES
   ${SHIMS_SOURCE_DIR}/time.c
   ${SHIMS_SOURCE_DIR}/usb_uart.c
   ${SHIMS_SOURCE_DIR}/logging.c
+  # ${SHIMS_SOURCE_DIR}/vault.c
 )
 
 # legacy C hito drivers
 set(DRIVERS_C_SOURCE_DIR ${HITO_CORE_DIR}/drivers_c)
 set(DRIVERS_C_SOURCES
   ${DRIVERS_C_SOURCE_DIR}/hito_ble.c
+  #${DRIVERS_C_SOURCE_DIR}/hito_nfc.c
+  #${DRIVERS_C_SOURCE_DIR}/hito_battery.c
   ${DRIVERS_C_SOURCE_DIR}/ft6336_ctp.c
   ${DRIVERS_C_SOURCE_DIR}/ili9342_lcd.c
   ${DRIVERS_C_SOURCE_DIR}/hito_pin_config.c
@@ -74,7 +78,8 @@ set(LIBCRYPT0_SOURCES
   ${LIBCRYPT0_DIR}/src/src_c/hito_rand.c
   ${LIBCRYPT0_DIR}/lib/SHA3IUF/sha3.c
   ${LIBCRYPT0_DIR}/lib/secp256k1/src/secp256k1.c
-  ${LIBCRYPT0_DIR}/lib/secp256k1/src/precomputed_ecmult.c
+  ${LIBCRYPT0_DIR}/lib/base58/base58.c
+  # ${LIBCRYPT0_DIR}/lib/secp256k1/src/precomputed_ecmult.c
   ${LIBCRYPT0_DIR}/lib/secp256k1/src/precomputed_ecmult_gen.c
   ${LIBCRYPT0_DIR}/src/src_c/crypt0_secp256k1.c
   ${LIBCRYPT0_DIR}/src/src_c/crypt0_sha.c
@@ -82,6 +87,25 @@ set(LIBCRYPT0_SOURCES
   # ${RUST_SOURCE_DIR}/crypto/crc16_ccitt/crc16_ccitt.c
   # ${RUST_SOURCE_DIR}/vault/vault.c
 )
+
+# The legacy C Vault is selected explicitly by the application's Zephyr
+# feature. Keep its sources out of unrelated embedded applications.
+file(READ ${RUST_APP_DIR}/Cargo.toml RUST_APP_CARGO_MANIFEST)
+string(FIND "${RUST_APP_CARGO_MANIFEST}" "hito-vault/c-vault-backend" HITO_C_VAULT_FEATURE_POS)
+set(HITO_VAULT_C_SOURCES "")
+if(NOT HITO_C_VAULT_FEATURE_POS EQUAL -1)
+  set(HITO_VAULT_C_DIR ${RUST_WORKSPACE_DIR}/crates/hito-vault/legacy-c)
+  set(CRYPT0PRO_C_DIR ${RUST_WORKSPACE_DIR}/crates/crypt0x/legacy-c)
+  list(APPEND HITO_VAULT_C_SOURCES
+    ${HITO_VAULT_C_DIR}/hito_vault.c
+    ${HITO_VAULT_C_DIR}/hito_vault_ffi.c
+    ${HITO_VAULT_C_DIR}/hito_vault_platform.c
+    ${HITO_VAULT_C_DIR}/hito_boot_version.c
+    ${CRYPT0PRO_C_DIR}/src/crypt0pro_eth.c
+    ${CRYPT0PRO_C_DIR}/src/crypt0pro_near.c
+    ${CRYPT0PRO_C_DIR}/src/crypt0pro_solana.c
+  )
+endif()
 
 # Main application sources
 set(SOURCE_FILES
@@ -104,11 +128,19 @@ target_include_directories(app PRIVATE
   ${SHIMS_SOURCE_DIR}/../include
 )
 
-target_sources(app PRIVATE ${SOURCE_FILES} ${LIBCRYPT0_SOURCES})
+if(NOT HITO_C_VAULT_FEATURE_POS EQUAL -1)
+  target_include_directories(app PRIVATE
+    ${HITO_VAULT_C_DIR}
+    ${CRYPT0PRO_C_DIR}/include
+  )
+endif()
+
+target_sources(app PRIVATE ${SOURCE_FILES} ${LIBCRYPT0_SOURCES} ${HITO_VAULT_C_SOURCES})
 target_compile_definitions(app PRIVATE
-  ENABLE_MODULE_ECDH
-  ENABLE_MODULE_RECOVERY
-  USE_FORCE_WIDEMUL_INT64
+  # ENABLE_MODULE_ECDH
+  # ENABLE_MODULE_RECOVERY
+  # USE_FORCE_WIDEMUL_INT64
+  ECMULT_GEN_PREC_BITS=2
 )
 # TODO decide PUBLIC vs PRIVATE
 target_link_libraries(app PUBLIC ${RUST_LIB_PATH})

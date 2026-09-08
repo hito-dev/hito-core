@@ -1,4 +1,4 @@
-use crate::drivers::payload::{PayloadBuffer, Error};
+use crate::drivers::payload::{Error, PayloadBuffer};
 
 static HEX: [u8; 16] = *b"0123456789abcdef";
 
@@ -6,6 +6,10 @@ static HEX: [u8; 16] = *b"0123456789abcdef";
 pub trait Transport {
 
     fn init(&mut self) -> bool; 
+    /// Stop the underlying transport. Unsupported transports report failure.
+    fn stop(&mut self) -> bool {
+        false
+    }
     fn poll_rx(&mut self) -> Result<(), Error>;
 
     fn has_data(&self) -> bool;
@@ -63,6 +67,10 @@ pub trait TransportDriver {
         B: AsRef<[u8]> + AsMut<[u8]>;
 
     fn send(&mut self, data: &[u8]) -> bool;
+
+    fn stop(&mut self) -> bool {
+        false
+    }
 }
 
 // BufferedTransport owns a payload buffer and a specific transport
@@ -96,8 +104,18 @@ where
     B: AsRef<[u8]> + AsMut<[u8]>,
 {
     fn init(&mut self) -> bool {
+        info!("Initializing transport device...");
         self.initialized = self.driver.init(&mut self.payload);
         self.initialized
+    }
+
+    fn stop(&mut self) -> bool {
+        if !self.driver.stop() {
+            return false;
+        }
+        self.initialized = false;
+        self.payload.clear();
+        true
     }
 
     fn poll_rx(&mut self) -> Result<(), Error> {
@@ -208,6 +226,11 @@ mod tests {
     }
 
     impl TransportDriver for FakeDriver {
+        fn stop(&mut self) -> bool {
+            self.init_called = false;
+            true
+        }
+
         fn init<B>(&mut self, _payload: &mut PayloadBuffer<B>) -> bool
         where
             B: AsRef<[u8]> + AsMut<[u8]>,
@@ -232,6 +255,21 @@ mod tests {
             self.send_data.extend_from_slice(data);
             true
         }
+    }
+
+    #[test]
+    fn transport_stop_clears_payload_and_blocks_io_until_reinitialized() {
+        let driver = FakeDriver::with_rx(&[b"abc"]);
+        let mut transport = TransportDevice::new(driver, [0u8; 128]);
+        assert!(transport.init());
+        transport.poll_rx().unwrap();
+        assert!(transport.stop());
+        assert!(!transport.driver.init_called);
+        assert!(!transport.has_data());
+        assert_eq!(transport.poll_rx(), Err(Error::NotInitialized));
+        assert!(!transport.send(b"reply"));
+        assert!(transport.init());
+        assert!(transport.send(b"reply"));
     }
 
     #[test]
