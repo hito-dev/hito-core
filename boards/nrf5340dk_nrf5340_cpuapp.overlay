@@ -7,8 +7,6 @@
   zephyr,user {
 
     io-channels = <&adc 0x00>;
-    
-    /*
     // Dev board
     lcd-dcx-pin   = <0x28>; // P1.08
     lcd-reset-pin = <21>; // P0.21
@@ -32,42 +30,41 @@
     devboard-pin      = <3>;  // P0.03, connected to VDD on nRF DK
 
     charge-pin        = <9>; // P0.09, Button4 on nRF DK
-    
+
     button-pin        = <23>; // P0.23, Button1 on nRF DK
 
     watchdog-sec      = <30>;
     dev-board         = <1>;
-    */
 
-    
-    // Device
-    lcd-dcx-pin   = <0x28>; // P1.08
-    lcd-reset-pin = <21>; // P0.21 n.c.
-    lcd-power-pin = <0x26>; // P1.06
-    lcd-led-pin   = <16>; // P0.16
-    lcd-cs-pin    = <19>; // P0.19
 
-    ctp-power-pin     = <0x2A>; // P1.10
-    ctp-int-pin       = <27>;   // P0.27
-    ctp-reset-pin     = <26>;   // P0.26
+    // // Device
+    // lcd-dcx-pin   = <0x28>; // P1.08
+    // lcd-reset-pin = <21>; // P0.21 n.c.
+    // lcd-power-pin = <0x26>; // P1.06
+    // lcd-led-pin   = <16>; // P0.16
+    // lcd-cs-pin    = <19>; // P0.19
 
-    nand-cs-pin       = <0x22>; // P1.02
-    nand-miso-pin     = <10>; // P0.10
-    nand-hold-pin     = <9>; // P0.09
+    // ctp-power-pin     = <0x2A>; // P1.10
+    // ctp-int-pin       = <27>;   // P0.27
+    // ctp-reset-pin     = <26>;   // P0.26
 
-    led-red-pin       = <4>; // P0.04
-    led-blue-pin      = <5>; // P0.05
-    led-green-pin     = <6>; // P0.06
+    // nand-cs-pin       = <0x22>; // P1.02
+    // nand-miso-pin     = <10>; // P0.10
+    // nand-hold-pin     = <9>; // P0.09
 
-    led-debug-pin     = <13>; // P0.13
-    devboard-pin      = <3>;  // P0.03, connected to VDD on nRF DK
+    // led-red-pin       = <4>; // P0.04
+    // led-blue-pin      = <5>; // P0.05
+    // led-green-pin     = <6>; // P0.06
 
-    charge-pin        = <13>; // P0.13
-    
-    button-pin        = <8>; // P0.08
+    // led-debug-pin     = <13>; // P0.13
+    // devboard-pin      = <3>;  // P0.03, connected to VDD on nRF DK
 
-    watchdog-sec      = <180>;
-    dev-board         = <0>;
+    // charge-pin        = <13>; // P0.13
+
+    // button-pin        = <8>; // P0.08
+
+    // watchdog-sec      = <180>;
+    // dev-board         = <0>;
 
   };
 
@@ -101,12 +98,12 @@
 };
 
 &i2c1 {
-  //sda-pin = < 7 >;  // dev board - yellow
-  //scl-pin = < 25 >; // dev board - greeen
-  
-  sda-pin = < 29 >; // device
-  scl-pin = < 28 >; // device
-  
+  sda-pin = < 7 >;  // dev board - yellow
+  scl-pin = < 25 >; // dev board - greeen
+
+  // sda-pin = < 29 >; // device
+  // scl-pin = < 28 >; // device
+
   bme680@38 {
 		compatible = "bosch,bme680";
 		label = "BME680";
