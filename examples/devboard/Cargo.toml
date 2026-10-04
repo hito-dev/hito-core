@@ -1,0 +1,28 @@
+[package]
+name = "hito_core_devboard"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+publish = false
+
+[lib]
+crate-type = ["rlib", "staticlib"]
+test = false
+doctest = false
+
+[[bin]]
+name = "hito_core_devboard"
+required-features = ["simulator"]
+
+[dependencies]
+hito_core = { path = "../..", default-features = false }
+
+[features]
+default = ["simulator", "log-info"]
+simulator = ["hito_core/simulator"]
+zephyr = ["hito_core/zephyr"]
+log-error = ["hito_core/log-error"]
+log-warn = ["hito_core/log-warn"]
+log-info = ["hito_core/log-info"]
+log-debug = ["hito_core/log-debug"]
+log-trace = ["hito_core/log-trace"]

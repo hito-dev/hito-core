@@ -1,7 +1,11 @@
 [package]
 name = "hito_core"
-version = "0.0.1"
+version = "0.1.0"
 edition = "2021"
+license = "MIT"
+description = "Platform library for Hito devices, with hardware drivers and a desktop simulator"
+repository = "https://github.com/hito-dev/hito-core"
+homepage = "https://hito.dev"
 
 [dev-dependencies]
 # hex = "0.4"
@@ -113,3 +117,24 @@ zephyr = [
     # "euclid/libm"
 ]
 
+
+[workspace]
+members = ["examples/devboard"]
+resolver = "2"
+
+[profile.dev]
+panic = "unwind"
+
+[profile.release]
+strip = "symbols"
+lto = true
+opt-level = "z"
+codegen-units = 1
+panic = "abort"
+debug = 0
+
+# Apply opt-level to ALL dependencies
+[profile.release.package."*"]
+opt-level = "z"
+codegen-units = 1
+strip = true

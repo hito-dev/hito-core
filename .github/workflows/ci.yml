@@ -1,0 +1,13 @@
+name: Core checks
+on: [push, pull_request]
+jobs:
+  rust:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: thumbv7em-none-eabi
+      - run: cargo test --locked -p hito_core
+      - run: cargo build --locked -p hito_core_devboard
+      - run: cargo check --locked -p hito_core --target thumbv7em-none-eabi --no-default-features --features zephyr,log-info

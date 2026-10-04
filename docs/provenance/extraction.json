@@ -1,0 +1,13 @@
+{
+  "source": "https://github.com/hito-dev/hito-firmware",
+  "source_branch": "feature/hito_ui_new",
+  "source_revision": "927a5b6d4882930253d7f94b6b4df8c6800514bf",
+  "legacy_cutoff": null,
+  "paths": [
+    "crates/hito_core/"
+  ],
+  "imported_tip": "5707e7b7d418f6139f84ce9c431ff4a151e80789",
+  "preserved_commits": 108,
+  "verified_tree_and_metadata": true,
+  "filter_repo_version": "2.47.0"
+}

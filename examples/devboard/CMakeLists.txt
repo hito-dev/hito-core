@@ -1,0 +1,8 @@
+cmake_minimum_required(VERSION 3.19)
+include(${CMAKE_CURRENT_SOURCE_DIR}/../../cmake/platform.cmake)
+hito_core_prepare_zephyr()
+set(CONF_FILE ${HITO_CORE_DIR}/config/devboard.conf)
+find_package(Zephyr REQUIRED HINTS $ENV{ZEPHYR_BASE})
+project(hito_core_devboard)
+hito_core_add_platform_sources(app)
+hito_core_add_rust_app(app hito_core_devboard ${CMAKE_CURRENT_SOURCE_DIR}/Cargo.toml)
