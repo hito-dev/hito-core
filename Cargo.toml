@@ -1,0 +1,115 @@
+[package]
+name = "hito_core"
+version = "0.0.1"
+edition = "2021"
+
+[dev-dependencies]
+# hex = "0.4"
+
+[dependencies]
+#zephyr = { git = "https://github.com/tylerwhall/zephyr-rust" }
+## Desktop simulation dependencies (optional)
+image     = { version = "0.25.6", optional = true }
+once_cell = { version = "1.19", optional = true }
+minifb    = { version = "^0", optional = true }
+#egui      = { version = "^0", optional = true }
+#eframe    = { version = "^0", optional = true }
+#resvg     = { workspace = true, optional = true }
+#fontdb    = { version = "^0.7", optional = true }
+font8x8   = { version = "0.3.1", optional = true }
+backtrace = { version = "0.3", optional = true }
+#stacker   = { version = "0.1", optional = true }
+#dhat      = { version = "0.3.0", optional = true }
+#openssl-sys = { version = "0.9", optional = true }
+#spin = "0.10.0"
+#hito_allocator = { path = "../hito_allocator" }
+
+## Dependencies for Stellar support with proper no_std features
+#sha2 = { version = "0.10", optional = true }
+#base32 = { version = "0.5.1", default-features = false }
+#crc = { version = "3.3.0", default-features = false }
+## substrate-stellar-sdk = { version="0.3.0", default-features = false }
+
+#paste = "1.0"
+#base64ct = {version = "1.8.0", default-features = false }
+#sha2 = "0.10"
+#sha2 = { version = "0.10", default-features = false }
+#rand_core = "0.6"
+#serde = { version = "1.0", default-features = false, features = ["derive"] }
+#serde_json = { version = "1.0", default-features = false, features = ["alloc"] }
+#ciborium = { version = "0.2", default-features = false }
+#
+#p256 = { version = "0.13", default-features = false, features = ["ecdsa", "pkcs8", "pem"] }
+#signature = { version = "2", default-features = false, features = ["alloc"] }
+
+#libm = { version = "0.2", optional = true }
+## Embedded dependencies (for zephyr feature)
+##cortex-m = { version = "0.7", optional = true }
+##cortex-m-rt = { version = "0.7", optional = true }
+##nrf5340-app-pac = { version = "0.12.2", optional = true }
+#panic-halt = { version = "0.2", optional = true }
+## embedded-alloc = { version = "0.6", optional = true }
+## critical-section = { version = "1.2", optional = true }
+## linked_list_allocator = { version = "0.10", optional = true }
+#slint = { default-features = false, optional = true, version = "=1.14.1", features = ["compat-1-2", "renderer-software"] }
+## euclid = { version = "0.22", default-features = false }
+#rand = {version = "0.9.2", optional = true}
+#defmt = { version = "1.x", default-features = false }
+#defmt-rtt = "0.4"
+#defmt-stdout = "x"
+
+# overflow-checks = false
+
+[build-dependencies]
+cc = "1.0"
+#slint-build = { version = "=1.14.1", features = ["sdf-fonts"] }
+bindgen = "0.72.1"
+
+[features]
+default = ["simulator", "log-trace"]
+
+# Log levels (mutually exclusive)
+log-error = []
+log-warn  = []
+log-info  = []
+log-debug = []
+log-trace = []
+
+simulator = [
+    "dep:minifb", 
+    "dep:backtrace",
+    #"dep:egui", 
+    #"dep:eframe", 
+    #"dep:resvg", 
+    #"dep:rand", 
+    #"dep:fontdb", 
+    "dep:image", 
+    "dep:once_cell", 
+    #"dep:slint", 
+    #"slint/compat-1-2", 
+    #"slint/renderer-software", 
+    #"slint/backend-winit", 
+    #"slint/std", 
+    "font8x8",  # Memory overlay buffer for simulator
+    #"stacker", 
+    #"dhat", 
+    #"openssl-sys",
+    #"sha2"
+]
+zephyr = [
+    #"dep:cortex-m", 
+    #"dep:cortex-m-rt", 
+    #"dep:nrf5340-app-pac", 
+    #"dep:panic-halt",
+    #"dep:libm"
+    #"hito_allocator/zephyr"
+    #"dep:linked_list_allocator",
+    #"dep:slint",
+    #"dep:mcu-board-support",
+    #"slint/compat-1-2",
+    #"slint/renderer-software", 
+    #"slint/unsafe-single-threaded",
+    #"slint/libm",
+    # "euclid/libm"
+]
+
